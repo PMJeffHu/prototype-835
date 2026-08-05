@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>核销日志</title>
+    <link rel="prefetch" href="index.html">
+    <link rel="prefetch" href="invoice.html">
+    <link rel="prefetch" href="verification.html">
+    <link rel="prefetch" href="verification-trace.html">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-size: 12px; color: #333; background-color: #f5f5f5;
+            display: flex; min-height: 100vh;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 230px; background: #fff; border-right: 1px solid #e8e8e8;
+            flex-shrink: 0; display: flex; flex-direction: column; position: relative; transition: width 0s;
+        }
+        .sidebar-toggle-btn {
+            position: fixed; left: 230px; top: 50%; transform: translateY(-50%);
+            width: 16px; height: 56px; background: #fff; border: 1px solid #e8e8e8;
+            border-left: none; border-radius: 0 4px 4px 0; display: flex;
+            align-items: center; justify-content: center; cursor: pointer; z-index: 1000; transition: left 0.2s;
+        }
+        .sidebar-toggle-btn:hover { background: #fafafa; }
+        .sidebar.collapsed + .main-content .sidebar-toggle-btn,
+        .sidebar.collapsed ~ .sidebar-toggle-btn { left: 0; }
+        .sidebar.collapsed { width: 0 !important; min-width: 0 !important; padding: 0 !important; overflow: hidden; border-right: none; }
+        .sidebar-toggle-btn .toggle-icon { font-size: 12px; color: #999; }
+        .sidebar-toggle-btn.collapsed .toggle-icon { transform: rotate(180deg); }
+        .sidebar-nav { flex: 1; padding: 12px 0; }
+        .nav-item {
+            display: flex; align-items: center; padding: 10px 20px; color: #333;
+            text-decoration: none; font-size: 13px; cursor: pointer;
+        }
+        .nav-item:hover { background: #f5f5f5; }
+        .nav-item.active { background: #f0f0fc; color: #5C62D9; border-right: 3px solid #5C62D9; font-weight: 500; }
+        .sidebar-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 100; transition: background 0.2s; }
+        .sidebar-resizer:hover, .sidebar-resizer.active { background: #5C62D9; }
+
+        /* 主内容区 */
+        .main-content { flex: 1; overflow-x: hidden; min-width: 0; }
+        .page-container { background: #fff; min-height: calc(100vh); display: flex; flex-direction: column; }
+
+        /* 面包屑 */
+        .breadcrumb {
+            padding: 10px 20px; background: #fff; border-bottom: 1px solid #e8e8e8;
+            font-size: 12px; color: #666;
+        }
+        .breadcrumb a { color: #666; text-decoration: none; }
+        .breadcrumb a:hover { color: #5C62D9; }
+        .breadcrumb .sep { margin: 0 6px; color: #999; }
+        .breadcrumb .current { color: #333; font-weight: 500; }
+
+        /* 筛选面板 */
+        .filter-panel {
+            padding: 16px 20px; background: #fff; border-bottom: 1px solid #f0f0f0;
+        }
+        .filter-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 24px;
+        }
+        .filter-item {
+            display: flex; align-items: center; min-height: 28px;
+        }
+        .filter-label {
+            color: #333; min-width: 70px; text-align: right;
+            margin-right: 8px; font-size: 12px; white-space: nowrap;
+        }
+        .filter-input {
+            flex: 1; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9;
+            border-radius: 4px; font-size: 12px; color: #333; background: #fff;
+        }
+        .filter-input:focus { outline: none; border-color: #5C62D9; }
+        .filter-input::placeholder { color: #bfbfbf; }
+        .filter-actions {
+            display: flex; gap: 8px; align-items: center; margin-top: 12px;
+        }
+        .date-range { flex: 1; display: flex; gap: 4px; align-items: center; }
+        .date-range .filter-input { width: 45%; }
+
+        .btn {
+            padding: 5px 16px; border: 1px solid #d9d9d9; border-radius: 4px;
+            background: #fff; cursor: pointer; font-size: 12px; color: #333;
+            min-width: 60px; height: 28px;
+        }
+        .btn:hover { border-color: #5C62D9; color: #5C62D9; }
+        .btn-primary { background: #5C62D9; border-color: #5C62D9; color: #fff; }
+        .btn-primary:hover { background: #4f54c0; border-color: #4f54c0; color: #fff; }
+
+        /* 表格 */
+        .table-wrapper { flex: 1; overflow-x: auto; }
+        .table-wrapper::-webkit-scrollbar { height: 10px; }
+        .table-wrapper::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 5px; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; border: 2px solid #f5f5f5; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead th {
+            background: #f0f0f8; color: #666; font-weight: 500; text-align: left;
+            padding: 10px 8px; border-bottom: 1px solid #e8e8e8; white-space: nowrap;
+            position: relative; user-select: none;
+        }
+        .col-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 10; }
+        .col-resizer:hover, .col-resizer.active { background-color: #5C62D9; }
+        tbody td { padding: 12px 8px; border-bottom: 1px solid #f0f0f0; color: #333; vertical-align: middle; }
+        tbody tr:hover { background-color: #fafafa; }
+
+        .col-index { width: 60px; }
+        .col-subject { width: 300px; }
+        .col-content { min-width: 400px; }
+        .col-time { width: 180px; }
+
+        /* 分页 */
+        .pagination-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; border-top: 1px solid #e8e8e8; background: #fafafa;
+        }
+        .pagination-info { color: #666; }
+        .pagination { display: flex; align-items: center; gap: 4px; }
+        .page-btn {
+            min-width: 28px; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9;
+            border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; color: #333;
+        }
+        .page-btn:hover { border-color: #5C62D9; color: #5C62D9; }
+        .page-btn.active { background: #5C62D9; border-color: #5C62D9; color: #fff; }
+        .page-size { display: flex; align-items: center; gap: 8px; }
+        .page-size select { height: 28px; padding: 0 8px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; font-size: 12px; }
+
+        .customer-service {
+            position: fixed; right: 20px; bottom: 60px; width: 40px; height: 40px;
+            background: #5C62D9; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            font-size: 20px; color: #fff; z-index: 1000;
+        }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <a href="product-mapping.html" class="nav-item"></a>
+            <a href="invoice-flow-config.html" class="nav-item"><span class="nav-text">开票流程配置</span></a>
+            <a href="index.html" class="nav-item"><span class="nav-text">对账管理</span></a>
+            <a href="invoice.html" class="nav-item"><span class="nav-text">发票管理</span></a>
+            <a href="verification.html" class="nav-item active"><span class="nav-text">发票核销(新)</span></a>
+            <a href="verification-trace.html" class="nav-item"><span class="nav-text">发票台账</span></a>
+        </nav>
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+    </aside>
+
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn" title="收起/展开侧边栏">
+        <span class="toggle-icon">&#9664;</span>
+    </div>
+
+    <main class="main-content" id="mainContent">
+        <div class="page-container">
+            <div class="breadcrumb">
+                <a href="verification.html">发票核销</a>
+                <span class="sep">&gt;</span>
+                <span class="current">核销日志</span>
+            </div>
+
+            <!-- 筛选面板 -->
+            <div class="filter-panel">
+                <div class="filter-grid">
+                    <div class="filter-item">
+                        <span class="filter-label">编码：</span>
+                        <div style="display:flex;gap:4px;flex:1;">
+                            <select class="filter-input" style="width:90px;flex-shrink:0;">
+                                <option>客户代码</option>
+                                <option>账户编号</option>
+                            </select>
+                            <input type="text" class="filter-input" placeholder="请输入编码">
+                        </div>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">操作时间：</span>
+                        <div class="date-range">
+                            <input type="text" class="filter-input" placeholder="开始日期">
+                            <span>~</span>
+                            <input type="text" class="filter-input" placeholder="结束日期">
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-actions">
+                    <button class="btn btn-primary">查 询</button>
+                    <button class="btn">重 置</button>
+                </div>
+            </div>
+
+            <!-- 表格 -->
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-index">序号<div class="col-resizer"></div></th>
+                            <th class="col-subject">主体信息<div class="col-resizer"></div></th>
+                            <th class="col-content">日志内容<div class="col-resizer"></div></th>
+                            <th class="col-time">操作时间<div class="col-resizer"></div></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>1</td>
+                            <td>来源：GD<br>客户代码：G1529<br>账户编号：ACG15291712<br>签约主体：y.a.li.n.El.c.g.nl<br>服务主体：US ELOGISTICS SERVICE CORP<br>销售区域：北美</td>
+                            <td>客户无可核销发票跳过</td>
+                            <td>2026-07-22 14:30:00</td>
+                        </tr>
+                        <tr>
+                            <td>2</td>
+                            <td>来源：EL<br>客户代码：EL1220<br>账户编号：ACG122001<br>签约主体：ELogistics Inc.<br>服务主体：EU Logistics GmbH<br>销售区域：欧洲</td>
+                            <td>可核销发票：INV20260722001，无可核销账单跳过</td>
+                            <td>2026-07-22 11:15:00</td>
+                        </tr>
+                        <tr>
+                            <td>3</td>
+                            <td>来源：GD<br>客户代码：G2960<br>账户编号：ACG296001<br>签约主体：Global Trade Co.<br>服务主体：US ELOGISTICS SERVICE CORP<br>销售区域：北美</td>
+                            <td>可核销发票：INV20260721003，可核销账单：B20260721G2960001，核销任务成功，任务ID：TASK202607210001，核销单号：FPHXG2960202607220004</td>
+                            <td>2026-07-21 16:45:00</td>
+                        </tr>
+                        <tr>
+                            <td>4</td>
+                            <td>来源：EL<br>客户代码：EL3001<br>账户编号：ACG300101<br>签约主体：Express Logistics Ltd<br>服务主体：UK Logistics Services<br>销售区域：欧洲</td>
+                            <td>可核销发票：INV20260720005，可核销账单：B20260720EL3001001，核销任务失败，失败原因：发票币种与账单币种不一致且无有效汇率</td>
+                            <td>2026-07-20 10:00:00</td>
+                        </tr>
+                        <tr>
+                            <td>5</td>
+                            <td>来源：GD<br>客户代码：G1345<br>账户编号：ACG134501<br>签约主体：Asia Pacific Trading<br>服务主体：JP Logistics KK<br>销售区域：亚太</td>
+                            <td>可核销发票：INV20260719002，可核销账单：B20260719G1345001，核销任务成功，任务ID：TASK202607190003，核销单号：FPHXG1345202607220001</td>
+                            <td>2026-07-19 09:30:00</td>
+                        </tr>
+                        <tr>
+                            <td>6</td>
+                            <td>来源：EL<br>客户代码：EL2001<br>账户编号：ACG200101<br>签约主体：Nordic Shipping AS<br>服务主体：EU Logistics GmbH<br>销售区域：欧洲</td>
+                            <td>可核销发票：INV20260718008，可核销账单：B20260718EL2001001，核销任务成功，任务ID：TASK202607180005，核销单号：FPHXEL2001202607180001</td>
+                            <td>2026-07-18 14:20:00</td>
+                        </tr>
+                        <tr>
+                            <td>7</td>
+                            <td>来源：GD<br>客户代码：G0890<br>账户编号：ACG089001<br>签约主体：South America Express<br>服务主体：BR Logistics Ltda<br>销售区域：南美</td>
+                            <td>客户无可核销发票跳过</td>
+                            <td>2026-07-17 15:00:00</td>
+                        </tr>
+                        <tr>
+                            <td>8</td>
+                            <td>来源：GD<br>客户代码：G1529<br>账户编号：ACG15291712<br>签约主体：y.a.li.n.El.c.g.nl<br>服务主体：US ELOGISTICS SERVICE CORP<br>销售区域：北美</td>
+                            <td>可核销发票：INV20260716003，无可核销账单跳过</td>
+                            <td>2026-07-16 08:45:00</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="pagination-bar">
+                <div class="pagination-info">共 8 条</div>
+                <div class="pagination">
+                    <button class="page-btn">上一页</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">下一页</button>
+                    <span>前往</span>
+                    <input type="text" value="1" style="width:40px;text-align:center;border:1px solid #d9d9d9;border-radius:4px;padding:2px 4px;margin:0 4px;">
+                    <span>页</span>
+                </div>
+                <div class="page-size">
+                    <select><option>20条/页</option><option>50条/页</option><option>100条/页</option></select>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="customer-service">&#128172;</div>
+
+    <script>
+        // 侧边栏折叠/展开
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        const sidebar = document.getElementById('sidebar');
+        if (sidebarToggleBtn) {
+            sidebarToggleBtn.addEventListener('click', e => {
+                e.stopPropagation();
+                sidebar.classList.toggle('collapsed');
+                sidebarToggleBtn.classList.toggle('collapsed');
+            });
+        }
+
+        // 侧边栏宽度拖拽
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        let isSidebarResizing = false, sidebarStartX = 0, sidebarStartWidth = 0;
+        if (sidebarResizer) {
+            sidebarResizer.addEventListener('mousedown', e => {
+                e.preventDefault();
+                isSidebarResizing = true;
+                sidebarResizer.classList.add('active');
+                sidebarStartX = e.pageX;
+                sidebarStartWidth = sidebar.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+        }
+        document.addEventListener('mousemove', e => {
+            if (!isSidebarResizing) return;
+            const d = e.pageX - sidebarStartX;
+            const w = sidebarStartWidth + d;
+            if (w >= 160 && w <= 400) sidebar.style.width = w + 'px';
+        });
+        document.addEventListener('mouseup', () => {
+            if (isSidebarResizing) {
+                isSidebarResizing = false;
+                if (sidebarResizer) sidebarResizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // 表格列宽拖拽
+        let activeResizer = null, startX = 0, startWidth = 0, thElem = null;
+        document.querySelectorAll('.col-resizer').forEach(r => {
+            r.addEventListener('mousedown', e => {
+                e.preventDefault(); e.stopPropagation();
+                activeResizer = r; r.classList.add('active');
+                thElem = r.parentElement; startX = e.pageX;
+                startWidth = thElem.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+        });
+        document.addEventListener('mousemove', e => {
+            if (!activeResizer) return;
+            const d = e.pageX - startX;
+            const w = startWidth + d;
+            if (w > 40) { thElem.style.width = w + 'px'; thElem.style.minWidth = w + 'px'; }
+        });
+        document.addEventListener('mouseup', () => {
+            if (activeResizer) {
+                activeResizer.classList.remove('active');
+                activeResizer = null; thElem = null;
+                document.body.style.cursor = ''; document.body.style.userSelect = '';
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,628 @@
+<title>企业后台管理系统 - 需求规则说明书（v2.0）</title>
+
+<h1>一、文档概述</h1>
+
+<h2>1.1 目的与范围</h2>
+<p>本文档为企业后台管理系统（对账管理、发票管理、发票核销、发票台账）的完整需求规格说明，覆盖页面结构、数据字段、交互逻辑和业务规则，作为 AI Coding 实现的前置输入。</p>
+
+<h2>1.2 技术约束</h2>
+<table>
+  <colgroup><col span="1" width="180"/><col span="1" width="340"/></colgroup>
+  <thead><tr><th background-color="light-gray">项目</th><th background-color="light-gray">规格</th></tr></thead>
+  <tbody>
+    <tr><td>前端技术栈</td><td>纯 HTML + CSS + 原生 JavaScript，无外部依赖框架</td></tr>
+    <tr><td>主色调</td><td>#5C62D9（蓝紫色）</td></tr>
+    <tr><td>布局方案</td><td>CSS Grid（筛选表单）+ Flexbox（标签/按钮/分页）+ 固定表格布局</td></tr>
+    <tr><td>兼容性</td><td>现代浏览器（Chrome/Edge/Firefox/Safari）</td></tr>
+    <tr><td>文件编码</td><td>UTF-8（严禁使用 PowerShell Get-Content 修改含中文的 HTML 文件）</td></tr>
+  </tbody>
+</table>
+
+<h2>1.3 系统架构</h2>
+<p>系统采用左侧固定侧边栏 + 右侧内容区的经典后台布局。侧边栏包含四个一级菜单，每个菜单对应一个独立功能页面。侧边栏支持拖拽调整宽度（160px~400px）和折叠/展开切换。</p>
+
+<h2>1.4 页面版本号</h2>
+<table>
+  <colgroup><col span="1" width="60"/><col span="1" width="280"/><col span="1" width="180"/></colgroup>
+  <thead><tr><th background-color="light-gray">序号</th><th background-color="light-gray">页面</th><th background-color="light-gray">菜单归属</th></tr></thead>
+  <tbody>
+    <tr><td><b>P1</b></td><td>对账管理（index.html）</td><td>对账管理</td></tr>
+    <tr><td><b>P2</b></td><td>标准场景开票申请（invoice.html）</td><td>发票管理</td></tr>
+    <tr><td><b>P3</b></td><td>非标场景开票申请（invoice-nonstandard.html）</td><td>发票管理</td></tr>
+    <tr><td><b>P4</b></td><td>标准场景发票编辑（invoice-edit.html）</td><td>发票管理 → 编辑</td></tr>
+    <tr><td><b>P5</b></td><td>非标场景发票编辑（invoice-nonstandard-edit.html）</td><td>发票管理 → 编辑</td></tr>
+    <tr><td><b>P6</b></td><td>标准场景发票明细（invoice-detail.html）</td><td>发票管理 → 发票详情</td></tr>
+    <tr><td><b>P7</b></td><td>非标场景发票明细（invoice-detail-nonstandard.html）</td><td>发票管理 → 发票详情</td></tr>
+    <tr><td><b>P8</b></td><td>发票核销（verification.html）</td><td>发票核销</td></tr>
+    <tr><td><b>P9</b></td><td>发票台账（verification-trace.html）</td><td>发票台账</td></tr>
+  </tbody>
+</table>
+
+<hr/>
+
+<h1>二、对账管理（P1）</h1>
+
+<h2>2.1 页面基本信息</h2>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="360"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>文件名</td><td>index.html</td></tr>
+    <tr><td>菜单名</td><td>对账管理</td></tr>
+    <tr><td>表格列数</td><td>18 列</td></tr>
+    <tr><td>弹窗数</td><td>5 个</td></tr>
+  </tbody>
+</table>
+
+<h2>2.2 筛选条件</h2>
+<p>筛选表单采用 4 列 CSS Grid 布局。</p>
+<table>
+  <colgroup><col span="1" width="180"/><col span="1" width="80"/><col span="1" width="260"/></colgroup>
+  <thead><tr><th background-color="light-gray">字段名</th><th background-color="light-gray">控件类型</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>业务标签</td><td>Tab 切换</td><td>全部 / 签约业务 / 非签约业务</td></tr>
+    <tr><td>账单确认状态</td><td>Tab 切换</td><td>全部 / 待确认 / 已确认 / 已驳回</td></tr>
+    <tr><td>编码/单号</td><td>组合下拉 + 输入框</td><td>下拉选项含账单号、签约单号等</td></tr>
+    <tr><td>确认结果</td><td>下拉单选</td><td>待确认 / 已确认 / 有差异</td></tr>
+    <tr><td>确认方式</td><td>下拉单选</td><td>系统自动确认 / 人工确认</td></tr>
+    <tr><td>处理状态</td><td>下拉单选</td><td>待处理 / 处理中 / 已完成</td></tr>
+    <tr><td>账单开票状态</td><td>下拉单选</td><td>未开票 / 开票中 / 已开票</td></tr>
+    <tr><td>来源</td><td>下拉单选</td><td></td></tr>
+    <tr><td>销售区域</td><td>下拉单选</td><td></td></tr>
+    <tr><td>销售代表</td><td>输入框</td><td></td></tr>
+    <tr><td>签约主体</td><td>输入框</td><td></td></tr>
+    <tr><td>客户星级</td><td>下拉单选</td><td>1星 / 2星 / 3星 / 4星 / 5星</td></tr>
+    <tr><td>周期</td><td>输入框</td><td></td></tr>
+    <tr><td>账期截止时间</td><td>日期范围</td><td>开始日期 ~ 结束日期</td></tr>
+    <tr><td>服务主体</td><td>输入框</td><td></td></tr>
+  </tbody>
+</table>
+
+<h2>2.3 操作栏</h2>
+<table>
+  <colgroup><col span="1" width="120"/><col span="1" width="400"/></colgroup>
+  <thead><tr><th background-color="light-gray">按钮</th><th background-color="light-gray">功能</th></tr></thead>
+  <tbody>
+    <tr><td>查询</td><td>执行筛选查询</td></tr>
+    <tr><td>重置</td><td>清空所有筛选条件</td></tr>
+    <tr><td>展开/收起</td><td>切换高级查询区域显隐</td></tr>
+  </tbody>
+</table>
+
+<h2>2.4 表格工具栏</h2>
+<table>
+  <colgroup><col span="1" width="120"/><col span="1" width="400"/></colgroup>
+  <thead><tr><th background-color="light-gray">按钮</th><th background-color="light-gray">功能</th></tr></thead>
+  <tbody>
+    <tr><td>申请开票</td><td>打开申请开票弹窗（弹窗宽度 1350px）</td></tr>
+    <tr><td>导出账单</td><td>导出当前列表数据</td></tr>
+  </tbody>
+</table>
+
+<h2>2.5 表格列定义</h2>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="60"/><col span="1" width="300"/></colgroup>
+  <thead><tr><th background-color="light-gray">列名</th><th background-color="light-gray">对齐</th><th background-color="light-gray">交互说明</th></tr></thead>
+  <tbody>
+    <tr><td>复选框</td><td>居中</td><td>表头复选框全选，行复选框单选。联动逻辑：表头全选→所有行勾选；任一行取消→表头取消</td></tr>
+    <tr><td>序号</td><td>居中</td><td>行号，从 1 开始递增</td></tr>
+    <tr><td>账单号</td><td>左对齐</td><td>纯文本展示</td></tr>
+    <tr><td>签约单号</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>客户代码</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>签约主体</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>服务主体</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>客户星级</td><td>居中</td><td>纯文本</td></tr>
+    <tr><td>销售代表</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>销售区域</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>账单周期</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>账单币种</td><td>居中</td><td>纯文本</td></tr>
+    <tr><td>账单总金额</td><td>右对齐</td><td>金额格式，右对齐</td></tr>
+    <tr><td>不开票金额</td><td>右对齐</td><td><b>可点击</b>，蓝色下划线，打开不开票金额详情弹窗</td></tr>
+    <tr><td>账单确认状态</td><td>居中</td><td>状态标签：待确认（橙色）/ 已确认（绿色）/ 已驳回（灰色）</td></tr>
+    <tr><td>确认结果</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>备注</td><td>左对齐</td><td>纯文本</td></tr>
+    <tr><td>操作</td><td>左对齐</td><td>两个链接：修改不开票金额（打开修改弹窗）、日志（打开操作日志弹窗）</td></tr>
+  </tbody>
+</table>
+
+<h2>2.6 弹窗明细</h2>
+
+<h3>2.6.1 申请开票弹窗</h3>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>触发</td><td>点击表格工具栏【申请开票】按钮</td></tr>
+    <tr><td>宽度</td><td>1350px</td></tr>
+    <tr><td>账单确认表格列</td><td>账单号、账单币种、账期、账单金额、账单税费、已开票金额(含税)、开票中金额(含税)、可开票金额(含税)、本次开票金额(含税)</td></tr>
+    <tr><td>本次开票金额列</td><td>文本输入框，输入验证范围 ±999,999,999.99</td></tr>
+    <tr><td>其他内容</td><td>开票资料表格、发票类型下拉框、备注输入框</td></tr>
+  </tbody>
+</table>
+
+<h3>2.6.2 不开票金额详情弹窗</h3>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>触发</td><td>点击列表"不开票金额"字段</td></tr>
+    <tr><td>基本信息区</td><td>账单号、客户代码、账户编号、签约主体、服务主体</td></tr>
+    <tr><td>金额信息表格</td><td>5 列（列宽 28px 等宽）：币种（第一列）、不开票总金额、清账金额、代金券金额、人工调整金额</td></tr>
+    <tr><td>操作记录表格</td><td>3 列（列宽 28px 等宽，默认折叠）：操作人、操作时间、操作内容</td></tr>
+  </tbody>
+</table>
+
+<h3>2.6.3 修改不开票金额弹窗</h3>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>触发</td><td>点击操作列【修改不开票金额】按钮</td></tr>
+    <tr><td>字段</td><td>调整金额（输入框）、调整后不开票金额（只读，自动计算 = 原值 + 调整值）、备注（输入框）</td></tr>
+    <tr><td>底部操作</td><td>确定（提交）、返回（关闭）</td></tr>
+  </tbody>
+</table>
+
+<h3>2.6.4 操作日志弹窗（公共组件）</h3>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>触发</td><td>点击操作列【日志】按钮（所有页面复用）</td></tr>
+    <tr><td>宽度</td><td>700px</td></tr>
+    <tr><td>表格列</td><td>操作人、操作时间、操作内容</td></tr>
+    <tr><td>测试数据</td><td>5 行静态数据</td></tr>
+  </tbody>
+</table>
+
+<h2>2.7 分页器</h2>
+<table>
+  <colgroup><col span="1" width="150"/><col span="1" width="370"/></colgroup>
+  <thead><tr><th background-color="light-gray">组件</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>页码按钮</td><td>上一页 / 数字页码（1~N）/ 下一页</td></tr>
+    <tr><td>每页条数</td><td>下拉选择：20 / 50 / 100 条/页</td></tr>
+    <tr><td>总记录数</td><td>格式："共 N 条记录"</td></tr>
+  </tbody>
+</table>
+
+<hr/>
+
+<h1>三、发票管理（P2~P7）</h1>
+
+<h2>3.1 子场景概览</h2>
+<table>
+  <colgroup><col span="1" width="60"/><col span="1" width="220"/><col span="1" width="120"/><col span="1" width="120"/></colgroup>
+  <thead><tr><th background-color="light-gray">编号</th><th background-color="light-gray">页面</th><th background-color="light-gray">文件名</th><th background-color="light-gray">路由来源</th></tr></thead>
+  <tbody>
+    <tr><td>P2</td><td>标准场景开票申请列表</td><td>invoice.html</td><td>菜单 → 发票管理（Tab: 标准）</td></tr>
+    <tr><td>P3</td><td>非标场景开票申请列表</td><td>invoice-nonstandard.html</td><td>菜单 → 发票管理（Tab: 非标）</td></tr>
+    <tr><td>P4</td><td>标准场景发票编辑</td><td>invoice-edit.html</td><td>P2 → 编辑按钮</td></tr>
+    <tr><td>P5</td><td>非标场景发票编辑</td><td>invoice-nonstandard-edit.html</td><td>P3 → 编辑按钮</td></tr>
+    <tr><td>P6</td><td>标准场景发票明细</td><td>invoice-detail.html</td><td>P2 / P4 → 发票详情</td></tr>
+    <tr><td>P7</td><td>非标场景发票明细</td><td>invoice-detail-nonstandard.html</td><td>P3 / P5 → 发票详情</td></tr>
+  </tbody>
+</table>
+
+<h2>3.2 标准场景开票申请（P2）</h2>
+
+<h3>3.2.1 筛选条件</h3>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="80"/><col span="1" width="280"/></colgroup>
+  <thead><tr><th background-color="light-gray">字段名</th><th background-color="light-gray">控件类型</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>开票场景</td><td>级联多选下拉</td><td>复选框方式。标准场景→账单开票；非标场景→国内段跨期/非账单/预充值/汇率差补/跨期账单开票。宽110px，右对齐等距</td></tr>
+    <tr><td>单据状态</td><td>Tab 切换</td><td>状态标签切换</td></tr>
+    <tr><td>编码/单号</td><td>组合下拉+输入</td><td>下拉选项 + 输入框组合</td></tr>
+    <tr><td>开票日期</td><td>日期范围</td><td>开始 ~ 结束</td></tr>
+    <tr><td>开票方式</td><td>下拉选择</td><td></td></tr>
+  </tbody>
+</table>
+
+<h3>3.2.2 表格列定义</h3>
+<p>表格 min-width: 2200px（触发横向滚动）。所有列支持拖拽调整宽度。</p>
+<table>
+  <colgroup><col span="1" width="220"/><col span="1" width="300"/></colgroup>
+  <thead><tr><th background-color="light-gray">列名</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>复选框</td><td>全选/行选</td></tr>
+    <tr><td>序号</td><td>行号</td></tr>
+    <tr><td>发票申请号</td><td>纯文本</td></tr>
+    <tr><td>账单号</td><td>纯文本</td></tr>
+    <tr><td>开票方式</td><td>纯文本</td></tr>
+    <tr><td>主体信息</td><td>多行文本：来源、客户代码、账户编号、签约主体、服务主体、销售区域</td></tr>
+    <tr><td>对账单金额</td><td>金额+币种两行展示</td></tr>
+    <tr><td>税费金额</td><td>金额+币种</td></tr>
+    <tr><td>本次申请金额（账单金额）</td><td>金额展示</td></tr>
+    <tr><td>本次申请金额（发票币种）</td><td>金额展示</td></tr>
+    <tr><td>待开票金额（发票币种）</td><td>金额展示</td></tr>
+    <tr><td>开票中金额（发票币种）</td><td>金额展示</td></tr>
+    <tr><td>未开票金额（发票币种）</td><td>金额展示</td></tr>
+    <tr><td>已开票金额（发票币种）</td><td>金额展示</td></tr>
+    <tr><td>待开票金额</td><td>金额展示</td></tr>
+    <tr><td>开票中金额</td><td>金额展示</td></tr>
+    <tr><td>未开票金额</td><td>金额展示</td></tr>
+    <tr><td>已开票金额</td><td>金额展示</td></tr>
+    <tr><td>单据状态</td><td>状态标签：待开票（橙色）/ 开票中（橙色）/ 部分开票（橙色）</td></tr>
+    <tr><td>核销方式</td><td>纯文本：自动核销 / 手动核销 / --</td></tr>
+    <tr><td>操作</td><td>驳回 / <b>发票详情（链接到 invoice-detail.html）</b> / 下载 / 更多</td></tr>
+  </tbody>
+</table>
+
+<h2>3.3 标准场景发票明细（P6）</h2>
+
+<h3>3.3.1 页面信息</h3>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>面包屑</td><td>发票管理 &gt; 标准场景开票申请 &gt; 发票明细</td></tr>
+    <tr><td>工具栏</td><td>【返回】【导出】</td></tr>
+    <tr><td>测试数据</td><td>2 行</td></tr>
+  </tbody>
+</table>
+
+<h3>3.3.2 表格列定义</h3>
+<table>
+  <colgroup><col span="1" width="140"/><col span="1" width="80"/><col span="1" width="300"/></colgroup>
+  <thead><tr><th background-color="light-gray">列名</th><th background-color="light-gray">宽度</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>序号</td><td>60px</td><td>行号</td></tr>
+    <tr><td>单据申请号</td><td>220px</td><td>纯文本（如 2066506887642828808）</td></tr>
+    <tr><td>发票申请号</td><td>240px</td><td>纯文本（如 FPG1345202401151828021001）</td></tr>
+    <tr><td>发票号码</td><td>240px</td><td>纯文本（如 20260515T0002 20260515T0003）</td></tr>
+    <tr><td>开票场景</td><td>120px</td><td>账单开票</td></tr>
+    <tr><td>发票代码</td><td>100px</td><td>--</td></tr>
+    <tr><td>发票总金额</td><td>140px</td><td>金额+币种两行（如 104.0000 JPY）</td></tr>
+    <tr><td>合计税额</td><td>140px</td><td>金额+币种两行</td></tr>
+    <tr><td>票店开票日期</td><td>200px</td><td>日期时间（如 2026-06-15 00:00:00）</td></tr>
+    <tr><td>开票日期</td><td>120px</td><td>日期（如 2026-06-15）</td></tr>
+    <tr><td>最近付款日期</td><td>140px</td><td>--</td></tr>
+    <tr><td>操作</td><td>200px</td><td>手动红冲 / 发起红冲 / 更多▼ / 作废（禁用灰）</td></tr>
+  </tbody>
+</table>
+
+<h2>3.4 非标场景开票申请（P3）</h2>
+<p>除标准场景筛选条件外，新增以下字段：</p>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="80"/><col span="1" width="280"/></colgroup>
+  <thead><tr><th background-color="light-gray">字段名</th><th background-color="light-gray">控件类型</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>发票号</td><td>输入框</td><td></td></tr>
+    <tr><td>发票类型</td><td>下拉选择</td><td></td></tr>
+    <tr><td>推送状态</td><td>下拉选择</td><td></td></tr>
+    <tr><td>是否参与自动核销</td><td>下拉选择</td><td></td></tr>
+    <tr><td>操作时间</td><td>日期范围</td><td></td></tr>
+  </tbody>
+</table>
+<p>操作列按钮：驳回 / <b>发票详情（链接到 invoice-detail-nonstandard.html）</b> / 日志</p>
+
+<h2>3.5 非标场景发票明细（P7）</h2>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>面包屑</td><td>发票管理 &gt; 非标准场景开票申请 &gt; 发票明细</td></tr>
+    <tr><td>与 P6 差异</td><td>第 9 列"票店开票日期"→"推送开票日期"；开票场景为"非账单开票"；1 行数据</td></tr>
+    <tr><td>测试数据</td><td>单据申请号 2075404823138361346 / 发票号 TESTINV0710 / 10.0000 USD</td></tr>
+  </tbody>
+</table>
+
+<hr/>
+
+<h1>四、发票核销（P8）</h1>
+
+<h2>4.1 页面基本信息</h2>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="360"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>文件名</td><td>verification.html</td></tr>
+    <tr><td>表格列数</td><td>17 列</td></tr>
+    <tr><td>操作列宽</td><td>240px</td></tr>
+    <tr><td>弹窗数</td><td>4 个</td></tr>
+  </tbody>
+</table>
+
+<h2>4.2 筛选条件</h2>
+<table>
+  <colgroup><col span="1" width="120"/><col span="1" width="80"/><col span="1" width="320"/></colgroup>
+  <thead><tr><th background-color="light-gray">字段名</th><th background-color="light-gray">控件</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>任务ID</td><td>输入框</td><td></td></tr>
+    <tr><td>核销单号</td><td>输入框</td><td></td></tr>
+    <tr><td>编码</td><td>输入框</td><td></td></tr>
+    <tr><td>账单号</td><td>输入框</td><td></td></tr>
+    <tr><td>发票号</td><td>输入框</td><td></td></tr>
+    <tr><td>币种</td><td>下拉选择</td><td></td></tr>
+    <tr><td>核销状态</td><td>下拉单选</td><td>核销中 / 已核销 / 废弃</td></tr>
+    <tr><td>操作人</td><td>输入框</td><td></td></tr>
+    <tr><td>操作时间</td><td>日期范围</td><td></td></tr>
+  </tbody>
+</table>
+
+<h2>4.3 工具栏</h2>
+<table>
+  <colgroup><col span="1" width="150"/><col span="1" width="370"/></colgroup>
+  <thead><tr><th background-color="light-gray">按钮</th><th background-color="light-gray">功能</th></tr></thead>
+  <tbody>
+    <tr><td>执行核销任务</td><td>打开执行核销任务弹窗</td></tr>
+    <tr><td>批量反核销</td><td>校验是否勾选记录→提示"核销金额将回滚到对应账单和发票可核销金额中，是否确认？"</td></tr>
+    <tr><td>导出列表</td><td>导出当前列表</td></tr>
+  </tbody>
+</table>
+
+<h2>4.4 表格列定义</h2>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="360"/></colgroup>
+  <thead><tr><th background-color="light-gray">列名</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>复选框</td><td>行选择</td></tr>
+    <tr><td>序号</td><td>行号</td></tr>
+    <tr><td>任务ID</td><td>纯文本</td></tr>
+    <tr><td>核销单号</td><td>纯文本</td></tr>
+    <tr><td>发票申请号</td><td>纯文本</td></tr>
+    <tr><td>主体信息</td><td>纯文本</td></tr>
+    <tr><td>发票号</td><td><b>纯文本</b>，无点击效果</td></tr>
+    <tr><td>本次发票核销金额</td><td>金额展示</td></tr>
+    <tr><td>账单号</td><td><b>纯文本</b>，无点击效果</td></tr>
+    <tr><td>本次账单核销金额</td><td>金额展示</td></tr>
+    <tr><td>核销币种</td><td>纯文本</td></tr>
+    <tr><td>本次核销金额</td><td>金额+币种，<b>可点击</b>（蓝色下划线 .verify-trigger），打开核销金额详情弹窗</td></tr>
+    <tr><td>核销方式</td><td>纯文本</td></tr>
+    <tr><td>核销状态</td><td>状态标签</td></tr>
+    <tr><td>操作人</td><td>纯文本</td></tr>
+    <tr><td>操作时间</td><td>日期时间</td></tr>
+    <tr><td>操作</td><td>反核销 / 日志</td></tr>
+  </tbody>
+</table>
+
+<h2>4.5 弹窗明细</h2>
+
+<h3>4.5.1 执行核销任务弹窗</h3>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>触发</td><td>点击工具栏【执行核销任务】按钮</td></tr>
+    <tr><td>字段</td><td>客户范围（下拉单选：全部客户/指定客户）、客户代码（下拉复选框，G开头5位以内，非必填）、账户编号（下拉复选框，AC+客户代码+2位随机数，非必填）</td></tr>
+    <tr><td>联动</td><td>选择"指定客户"时展示客户代码和账户编号字段</td></tr>
+  </tbody>
+</table>
+
+<h3>4.5.2 反核销确认弹窗</h3>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>触发</td><td>点击操作列【反核销】或工具栏【批量反核销】</td></tr>
+    <tr><td>提示文案</td><td>"点击后核销金额将自动回滚到对应账单和发票可核销金额中，是否确认对当前核销任务进行反核销？"</td></tr>
+    <tr><td>操作</td><td>确定 / 取消</td></tr>
+  </tbody>
+</table>
+
+<h3>4.5.3 核销金额详情弹窗</h3>
+<table>
+  <colgroup><col span="1" width="100"/><col span="1" width="420"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>触发</td><td>点击列表"本次核销金额"字段（.verify-trigger）</td></tr>
+    <tr><td>宽度</td><td>900px</td></tr>
+    <tr><td>发票核销金额表</td><td>发票号、发票币种、发票日期、本次核销金额（4 列）</td></tr>
+    <tr><td>账单核销金额表</td><td>账单号、账单周期、账单币种、核销金额(账单币种)、汇率、核销金额(发票币种)（6 列，支持多账单行）</td></tr>
+  </tbody>
+</table>
+
+<h3>4.5.4 操作日志弹窗</h3>
+<p>同 2.6.4 公共组件。</p>
+
+<hr/>
+
+<h1>五、发票台账（P9）</h1>
+
+<h2>5.1 页面基本信息</h2>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="360"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">值</th></tr></thead>
+  <tbody>
+    <tr><td>文件名</td><td>verification-trace.html</td></tr>
+    <tr><td>表格列数</td><td>22 列 + 操作列</td></tr>
+    <tr><td>操作列宽</td><td>240px</td></tr>
+    <tr><td>跳转来源</td><td>菜单 → 发票台账</td></tr>
+  </tbody>
+</table>
+
+<h2>5.2 工具栏</h2>
+<table>
+  <colgroup><col span="1" width="150"/><col span="1" width="370"/></colgroup>
+  <thead><tr><th background-color="light-gray">按钮</th><th background-color="light-gray">功能</th></tr></thead>
+  <tbody>
+    <tr><td>导出核销轨迹</td><td>导出核销轨迹数据</td></tr>
+    <tr><td>是否参与自动核销</td><td>批量修改按钮（弹出修改弹窗）</td></tr>
+    <tr><td>导出列表</td><td>导出当前列表</td></tr>
+  </tbody>
+</table>
+
+<h2>5.3 表格列定义</h2>
+<table>
+  <colgroup><col span="1" width="180"/><col span="1" width="340"/></colgroup>
+  <thead><tr><th background-color="light-gray">列名</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>复选框</td><td>行选择</td></tr>
+    <tr><td>序号</td><td>行号</td></tr>
+    <tr><td>发票号</td><td>纯文本</td></tr>
+    <tr><td>开票申请号</td><td>纯文本</td></tr>
+    <tr><td>发票状态</td><td>状态标签：正常（绿色）/ 异常 / 作废（灰色）</td></tr>
+    <tr><td>开票场景</td><td>账单开票 / 非账单开票等</td></tr>
+    <tr><td>是否参与自动核销</td><td>参与 / 不参与 / 无需参与（3 种枚举值）</td></tr>
+    <tr><td>开票方式</td><td>FPS非标准手信等</td></tr>
+    <tr><td>发票类型</td><td>形式发票等</td></tr>
+    <tr><td>客户代码</td><td>纯文本</td></tr>
+    <tr><td>账户编号</td><td>纯文本</td></tr>
+    <tr><td>服务主体</td><td>纯文本</td></tr>
+    <tr><td>销售组别</td><td>纯文本</td></tr>
+    <tr><td>销售区域</td><td>纯文本</td></tr>
+    <tr><td>客户星级</td><td>纯文本</td></tr>
+    <tr><td>开票日期</td><td>日期时间</td></tr>
+    <tr><td>发票币种</td><td>纯文本</td></tr>
+    <tr><td>发票金额</td><td>金额展示</td></tr>
+    <tr><td>核销状态</td><td>状态标签：已核销（绿色）/ 未核销（橙色）/ 无需核销（灰色）</td></tr>
+    <tr><td>已核销金额</td><td>金额展示</td></tr>
+    <tr><td>未核销金额</td><td>金额展示</td></tr>
+    <tr><td>核销中金额</td><td>金额展示</td></tr>
+    <tr><td>剩余可核销金额</td><td>金额展示</td></tr>
+    <tr><td>操作</td><td>折叠菜单（详见 5.4）</td></tr>
+  </tbody>
+</table>
+
+<h2>5.4 操作列折叠菜单</h2>
+<p><b>可见按钮（2 个）：</b></p>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="360"/></colgroup>
+  <thead><tr><th background-color="light-gray">按钮</th><th background-color="light-gray">功能</th></tr></thead>
+  <tbody>
+    <tr><td>是否参与自动核销</td><td>点击修改当前行字段值（参与/不参与/无需参与）</td></tr>
+    <tr><td>更多</td><td>点击展开下拉菜单（position: fixed + getBoundingClientRect 动态定位，z-index: 9999）</td></tr>
+  </tbody>
+</table>
+<p><b>【更多】下拉菜单内容：</b></p>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="360"/></colgroup>
+  <thead><tr><th background-color="light-gray">选项</th><th background-color="light-gray">功能</th></tr></thead>
+  <tbody>
+    <tr><td>发票日志</td><td>打开操作日志弹窗（公共组件）</td></tr>
+    <tr><td>查看账单</td><td>查看账单详情</td></tr>
+    <tr><td>发票文件预览</td><td>预览发票文件</td></tr>
+    <tr><td>下载发票</td><td>下载发票文件</td></tr>
+  </tbody>
+</table>
+<p>交互规则：点击【更多】展开下拉；点击页面其他区域自动关闭；同一时间只展开一个下拉。</p>
+
+<hr/>
+
+<h1>六、公共设计规范</h1>
+
+<h2>6.1 颜色系统</h2>
+<table>
+  <colgroup><col span="1" width="120"/><col span="1" width="120"/><col span="1" width="280"/></colgroup>
+  <thead><tr><th background-color="light-gray">用途</th><th background-color="light-gray">颜色值</th><th background-color="light-gray">说明</th></tr></thead>
+  <tbody>
+    <tr><td>主色调</td><td>#5C62D9</td><td>按钮、链接、高亮、侧边栏选中态</td></tr>
+    <tr><td>成功/正常</td><td>#52c41a</td><td>.status-normal / .status-done 文字色</td></tr>
+    <tr><td>警告/待处理</td><td>#fa8c16</td><td>.status-pending 文字色</td></tr>
+    <tr><td>禁用/灰色</td><td>#999</td><td>.status-void 文字色、.action-link.disabled</td></tr>
+    <tr><td>表头背景</td><td>#f0f0fc</td><td>表格表头</td></tr>
+    <tr><td>行悬停</td><td>#fafafa</td><td>tbody tr:hover</td></tr>
+    <tr><td>侧边栏选中</td><td>#f0f0fc</td><td>.nav-item.active 背景</td></tr>
+  </tbody>
+</table>
+
+<h2>6.2 状态标签 CSS 定义</h2>
+<table>
+  <colgroup><col span="1" width="140"/><col span="1" width="100"/><col span="1" width="100"/><col span="1" width="100"/></colgroup>
+  <thead><tr><th background-color="light-gray">类名</th><th background-color="light-gray">文字色</th><th background-color="light-gray">背景色</th><th background-color="light-gray">边框色</th></tr></thead>
+  <tbody>
+    <tr><td>.status-normal</td><td>#52c41a</td><td>#f6ffed</td><td>#b7eb8f</td></tr>
+    <tr><td>.status-pending</td><td>#fa8c16</td><td>#fff7e6</td><td>#ffd8bf</td></tr>
+    <tr><td>.status-done</td><td>#52c41a</td><td>#f6ffed</td><td>#b7eb8f</td></tr>
+    <tr><td>.status-void</td><td>#999</td><td>#f5f5f5</td><td>#d9d9d9</td></tr>
+  </tbody>
+</table>
+
+<h2>6.3 弹窗系统规范</h2>
+<table>
+  <colgroup><col span="1" width="140"/><col span="1" width="380"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">规格</th></tr></thead>
+  <tbody>
+    <tr><td>遮罩层</td><td>position: fixed；rgba(0,0,0,0.45)；z-index: 2000</td></tr>
+    <tr><td>弹窗本体</td><td>白色背景、圆角 4px、box-shadow: 0 4px 20px rgba(0,0,0,0.15)</td></tr>
+    <tr><td>关闭方式</td><td>点击遮罩层 / 点击 × 关闭按钮 / 点击取消按钮</td></tr>
+    <tr><td>置顶机制</td><td>全局 topZIndex 变量，每次打开弹窗 z-index 递增</td></tr>
+    <tr><td>背景锁定</td><td>打开弹窗时 document.body.style.overflow = 'hidden'</td></tr>
+    <tr><td>操作日志弹窗</td><td>宽度 700px；表格 3 列（操作人、操作时间、操作内容）；5 行测试数据；全部页面复用</td></tr>
+  </tbody>
+</table>
+
+<h2>6.4 表格规范</h2>
+<table>
+  <colgroup><col span="1" width="140"/><col span="1" width="380"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">规格</th></tr></thead>
+  <tbody>
+    <tr><td>布局方式</td><td>table-layout: fixed</td></tr>
+    <tr><td>列宽拖拽</td><td>.col-resizer 手柄；mousedown→mousemove（设置 th.style.width 和 minWidth）→mouseup</td></tr>
+    <tr><td>表头</td><td>背景 #f0f0fc；padding 10px 8px；position: relative；overflow: hidden</td></tr>
+    <tr><td>单元格</td><td>padding 12px 8px；vertical-align: middle</td></tr>
+    <tr><td>金额列</td><td>text-align: right；等宽字体（Consolas, Monaco）</td></tr>
+    <tr><td>横向滚动</td><td>.table-wrapper 容器 overflow-x: auto；自定义 Webkit 滚动条样式</td></tr>
+    <tr><td>表格内下拉菜单</td><td>必须使用 position: fixed + getBoundingClientRect() 动态定位；z-index: 9999；避免被 overflow-x: auto 裁剪</td></tr>
+  </tbody>
+</table>
+
+<h2>6.5 侧边栏规范</h2>
+<table>
+  <colgroup><col span="1" width="140"/><col span="1" width="380"/></colgroup>
+  <thead><tr><th background-color="light-gray">属性</th><th background-color="light-gray">规格</th></tr></thead>
+  <tbody>
+    <tr><td>默认宽度</td><td>230px</td></tr>
+    <tr><td>拖拽范围</td><td>160px ~ 400px</td></tr>
+    <tr><td>菜单结构</td><td>4 个一级菜单：对账管理、发票管理、发票核销、发票台账</td></tr>
+    <tr><td>折叠交互</td><td>点击按钮切换 .collapsed 类；折叠后宽度 0，按钮 fixed 定位在左下侧</td></tr>
+    <tr><td>菜单活跃态</td><td>背景 #f0f0fc；文字 #5C62D9；右侧 3px 蓝色边框</td></tr>
+  </tbody>
+</table>
+
+<h2>6.6 交互辅助类</h2>
+<table>
+  <colgroup><col span="1" width="160"/><col span="1" width="360"/></colgroup>
+  <thead><tr><th background-color="light-gray">类名</th><th background-color="light-gray">样式</th></tr></thead>
+  <tbody>
+    <tr><td>.action-link</td><td>color: #5C62D9; cursor: pointer; display: block; line-height: 1.8; 悬停下划线</td></tr>
+    <tr><td>.action-link.disabled</td><td>color: #999; cursor: not-allowed; 悬停无下划线</td></tr>
+    <tr><td>.verify-trigger</td><td>color: #5C62D9; cursor: pointer; text-decoration: underline（发票核销金额点击字段）</td></tr>
+  </tbody>
+</table>
+
+<hr/>
+
+<h1>七、AI 实现关键注意事项</h1>
+
+<h2>7.1 核心交互规则</h2>
+<ol>
+  <li seq="auto">弹窗 z-index 管理：全局变量 topZIndex，每次打开递增，确保最新弹窗在顶层</li>
+  <li seq="auto">表格内下拉菜单：必须 position: fixed + getBoundingClientRect() 动态计算位置</li>
+  <li seq="auto">编码：文件 UTF-8，严禁 PowerShell Get-Content 修改含中文 HTML</li>
+  <li seq="auto">列宽拖拽：.col-resizer mousedown→mousemove→mouseup，设置 th.style.minWidth 和 th.style.width</li>
+  <li seq="auto">Tab 标签切换：.filter-tags 容器内 .tag 元素，点击切换 .active</li>
+  <li seq="auto">全选/反选：表头复选框联动 tbody 行复选框</li>
+  <li seq="auto">级联多选下拉：原生 JS 实现，支持父子级联选中/取消</li>
+</ol>
+
+<h2>7.2 数据 Mock 规范</h2>
+<table>
+  <colgroup><col span="1" width="140"/><col span="1" width="380"/></colgroup>
+  <thead><tr><th background-color="light-gray">数据类型</th><th background-color="light-gray">规范</th></tr></thead>
+  <tbody>
+    <tr><td>金额</td><td>正负范围内合理数值，最多 4 位小数</td></tr>
+    <tr><td>日期</td><td>2026 年内合理日期</td></tr>
+    <tr><td>编码格式</td><td>G开头5位内客户代码、AC+客户代码+2位账户编号、INV开头发票号、B开头账单号、FPG/FPEL开头发票申请号</td></tr>
+    <tr><td>状态值</td><td>枚举范围内随机分布</td></tr>
+    <tr><td>币种</td><td>USD / CNY / JPY / EUR / GBP 等常用币种</td></tr>
+  </tbody>
+</table>
+
+<h2>7.3 文件清单</h2>
+<table>
+  <colgroup><col span="1" width="280"/><col span="1" width="120"/><col span="1" width="120"/></colgroup>
+  <thead><tr><th background-color="light-gray">文件名</th><th background-color="light-gray">编号</th><th background-color="light-gray">菜单</th></tr></thead>
+  <tbody>
+    <tr><td>index.html</td><td>P1</td><td>对账管理</td></tr>
+    <tr><td>invoice.html</td><td>P2</td><td>发票管理</td></tr>
+    <tr><td>invoice-nonstandard.html</td><td>P3</td><td>发票管理</td></tr>
+    <tr><td>invoice-edit.html</td><td>P4</td><td>发票管理→编辑</td></tr>
+    <tr><td>invoice-nonstandard-edit.html</td><td>P5</td><td>发票管理→编辑</td></tr>
+    <tr><td>invoice-detail.html</td><td>P6</td><td>发票管理→明细</td></tr>
+    <tr><td>invoice-detail-nonstandard.html</td><td>P7</td><td>发票管理→明细</td></tr>
+    <tr><td>verification.html</td><td>P8</td><td>发票核销</td></tr>
+    <tr><td>verification-trace.html</td><td>P9</td><td>发票台账</td></tr>
+  </tbody>
+</table>

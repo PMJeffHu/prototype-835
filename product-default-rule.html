@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>品名默认规则</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-size: 12px;
+            color: #333;
+            background-color: #f5f5f5;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 230px;
+            background: #fff;
+            border-right: 1px solid #e8e8e8;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: width 0s;
+        }
+
+        .sidebar-toggle-btn {
+            position: fixed;
+            left: 230px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 56px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-left: none;
+            border-radius: 0 4px 4px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            transition: left 0.2s;
+        }
+        .sidebar-toggle-btn:hover { background: #fafafa; }
+        .sidebar.collapsed + .main-content .sidebar-toggle-btn,
+        .sidebar.collapsed ~ .sidebar-toggle-btn { left: 0; }
+        .sidebar.collapsed { width: 0 !important; min-width: 0 !important; padding: 0 !important; overflow: hidden; border-right: none; }
+        .sidebar-toggle-btn .toggle-icon { font-size: 12px; color: #999; }
+        .sidebar-toggle-btn.collapsed .toggle-icon { transform: rotate(180deg); }
+        .sidebar-nav { flex: 1; padding: 12px 0; }
+        .nav-item {
+            display: flex; align-items: center; padding: 10px 20px; color: #333;
+            text-decoration: none; font-size: 13px; cursor: pointer;
+        }
+        .nav-item:hover { background: #f5f5f5; }
+        .nav-item.active { background: #f0f0fc; color: #5C62D9; border-right: 3px solid #5C62D9; font-weight: 500; }
+        .sidebar-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 100; transition: background 0.2s; }
+        .sidebar-resizer:hover, .sidebar-resizer.active { background: #5C62D9; }
+
+        /* 主内容区 */
+        .main-content { flex: 1; overflow-x: hidden; min-width: 0; }
+        .page-container { background: #fff; min-height: calc(100vh); display: flex; flex-direction: column; }
+
+        /* 面包屑 */
+        .breadcrumb {
+            padding: 10px 20px;
+            background: #fff;
+            border-bottom: 1px solid #e8e8e8;
+            font-size: 12px;
+            color: #666;
+        }
+        .breadcrumb a { color: #666; text-decoration: none; }
+        .breadcrumb a:hover { color: #5C62D9; }
+        .breadcrumb .sep { margin: 0 6px; color: #999; }
+        .breadcrumb .current { color: #333; font-weight: 500; }
+
+        /* 提示条 */
+        .tips-banner {
+            padding: 10px 20px;
+            background: #fffbe6;
+            border-bottom: 1px solid #ffe58f;
+            color: #8c6d00;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+
+        /* 筛选面板 */
+        .filter-panel {
+            padding: 16px 20px;
+            background: #fff;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px 24px;
+        }
+        .filter-item {
+            display: flex; align-items: center; min-height: 28px;
+        }
+        .filter-label {
+            color: #333; min-width: 90px; text-align: right;
+            margin-right: 8px; font-size: 12px; white-space: nowrap;
+        }
+        .filter-input {
+            flex: 1; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9;
+            border-radius: 4px; font-size: 12px; color: #333; background: #fff;
+        }
+        .filter-input:focus { outline: none; border-color: #5C62D9; }
+        .filter-input::placeholder { color: #bfbfbf; }
+        .filter-select {
+            flex: 1; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9;
+            border-radius: 4px; font-size: 12px; color: #bfbfbf; background: #fff; cursor: pointer;
+        }
+        .filter-select.has-value { color: #333; }
+        .filter-actions {
+            display: flex; gap: 8px; align-items: center;
+            margin-top: 12px;
+        }
+
+        .btn {
+            padding: 5px 16px; border: 1px solid #d9d9d9; border-radius: 4px;
+            background: #fff; cursor: pointer; font-size: 12px; color: #333;
+            min-width: 60px; height: 28px;
+        }
+        .btn:hover { border-color: #5C62D9; color: #5C62D9; }
+        .btn-primary { background: #5C62D9; border-color: #5C62D9; color: #fff; }
+        .btn-primary:hover { background: #4f54c0; border-color: #4f54c0; color: #fff; }
+
+        /* 工具栏 */
+        .table-toolbar {
+            padding: 12px 20px;
+            background: #fff;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .table-toolbar-left { display: flex; gap: 8px; }
+        .table-toolbar .btn { min-width: auto; padding: 5px 12px; }
+
+        /* 表格 */
+        .table-wrapper { flex: 1; overflow-x: auto; }
+        .table-wrapper::-webkit-scrollbar { height: 10px; }
+        .table-wrapper::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 5px; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; border: 2px solid #f5f5f5; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead th {
+            background: #f0f0fc;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 500;
+            color: #333;
+        }
+        .th-new-feature { color: #52c41a !important; }
+        .tip-wrap { position: relative; display: inline-flex; }
+        .tip-icon { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: #bfbfbf; color: #fff; font-size: 10px; font-weight: bold; cursor: pointer; font-style: normal; line-height: 1; flex-shrink: 0; margin-left: 4px; }
+        .tip-icon:hover { background: #5C62D9; }
+        .tip-text { display: none; position: fixed; background: #555; color: #fff; padding: 8px 12px; border-radius: 4px; white-space: normal; max-width: 300px; font-size: 12px; font-weight: normal; z-index: 99999; box-shadow: 0 2px 8px rgba(0,0,0,0.15); line-height: 1.5; }
+        .tip-text::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #555; }
+        .tip-text.show { display: block; }
+        .new-badge {
+            display: inline-block;
+            background: #52c41a;
+            color: #fff;
+            font-size: 8px;
+            padding: 0 3px;
+            border-radius: 2px;
+            margin-left: 1px;
+            line-height: 13px;
+            vertical-align: super;
+            font-weight: 500;
+            pointer-events: none;
+        }
+            border-bottom: 1px solid #e8e8e8;
+            white-space: nowrap;
+            position: relative;
+            user-select: none;
+        }
+        .col-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 10; }
+        .col-resizer:hover, .col-resizer.active { background-color: #5C62D9; }
+        tbody td { padding: 12px; border-bottom: 1px solid #f0f0f0; color: #333; vertical-align: top; }
+        tbody tr:hover { background-color: #fafafa; }
+
+        .info-icon {
+            display: inline-block; width: 14px; height: 14px; line-height: 12px;
+            text-align: center; font-size: 10px; color: #999; border: 1px solid #ccc;
+            border-radius: 50%; margin-left: 4px; cursor: help;
+        }
+
+        .col-checkbox { width: 40px; }
+        .col-index { width: 60px; }
+
+        .col-action-link { color: #5C62D9; cursor: pointer; margin-right: 8px; }
+        .col-action-link:hover { text-decoration: underline; }
+        .col-action-link:last-child { margin-right: 0; }
+
+        /* 分页 */
+        .pagination-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; border-top: 1px solid #e8e8e8; background: #fafafa;
+        }
+        .pagination-info { color: #666; }
+        .pagination { display: flex; align-items: center; gap: 4px; }
+        .page-btn {
+            min-width: 28px; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9;
+            border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; color: #333;
+        }
+        .page-btn:hover { border-color: #5C62D9; color: #5C62D9; }
+        .page-btn.active { background: #5C62D9; border-color: #5C62D9; color: #fff; }
+        .page-size { display: flex; align-items: center; gap: 8px; }
+        .page-size select { height: 28px; padding: 0 8px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; font-size: 12px; }
+
+        /* 底部返回 */
+        .back-bar {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px 20px;
+            border-top: 1px solid #e8e8e8;
+            background: #fff;
+        }
+        .back-bar .btn {
+            min-width: 80px;
+        }
+
+        .customer-service {
+            position: fixed; right: 20px; bottom: 60px; width: 40px; height: 40px;
+            background: #5C62D9; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            font-size: 20px; color: #fff; z-index: 1000;
+        }
+
+        /* 弹窗 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.45); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #fff; border-radius: 8px;
+            width: 600px; max-height: 90vh;
+            display: flex; flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .modal-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; border-bottom: 1px solid #f0f0f0;
+        }
+        .modal-title {
+            display: flex; align-items: center; gap: 8px;
+            font-size: 14px; font-weight: 600; color: #333;
+        }
+        .modal-title::before {
+            content: ''; width: 4px; height: 16px;
+            background: #5C62D9; border-radius: 2px;
+        }
+        .modal-close {
+            font-size: 18px; color: #999; cursor: pointer;
+            background: none; border: none; line-height: 1;
+        }
+        .modal-close:hover { color: #333; }
+        .modal-body {
+            padding: 20px; overflow-y: auto; flex: 1;
+        }
+        .modal-footer {
+            display: flex; justify-content: center; gap: 12px;
+            padding: 16px 20px; border-top: 1px solid #f0f0f0;
+        }
+        .modal-footer .btn { min-width: 80px; height: 32px; }
+
+        /* 表单 */
+        .form-row {
+            display: flex; align-items: center; margin-bottom: 12px;
+        }
+        .form-row:last-child { margin-bottom: 0; }
+        .form-label {
+            width: 120px; text-align: right; margin-right: 12px;
+            font-size: 12px; color: #333; white-space: nowrap;
+        }
+        .form-label .required { color: #ff4d4f; margin-right: 2px; }
+        .form-control {
+            flex: 1; height: 32px; padding: 0 10px;
+            border: 1px solid #d9d9d9; border-radius: 4px;
+            font-size: 12px; color: #333; background: #fff;
+        }
+        .form-control:focus { outline: none; border-color: #5C62D9; }
+        .form-control::placeholder { color: #bfbfbf; }
+        .form-control:disabled, .form-control[readonly] {
+            background: #f5f5f5; color: #999; cursor: not-allowed;
+        }
+        .form-select {
+            flex: 1; height: 32px; padding: 0 10px;
+            border: 1px solid #d9d9d9; border-radius: 4px;
+            font-size: 12px; color: #333; background: #fff; cursor: pointer;
+        }
+        .form-select:focus { outline: none; border-color: #5C62D9; }
+        .form-select.placeholder { color: #bfbfbf; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <a href="product-mapping.html" class="nav-item">
+                <span class="nav-text">发票品名映射</span>
+            </a>
+            <a href="invoice-flow-config.html" class="nav-item active">
+                <span class="nav-text">开票流程配置</span>
+            </a>
+            <a href="index.html" class="nav-item">
+                <span class="nav-text">对账管理</span>
+            </a>
+            <a href="invoice.html" class="nav-item">
+                <span class="nav-text">发票管理</span>
+            </a>
+            <a href="verification.html" class="nav-item">
+                <span class="nav-text">发票核销(新)</span>
+            </a>
+            <a href="verification-trace.html" class="nav-item">
+                <span class="nav-text">发票台账</span>
+            </a>
+        </nav>
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+    </aside>
+
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn" title="收起/展开侧边栏">
+        <span class="toggle-icon">&#9664;</span>
+    </div>
+
+    <main class="main-content" id="mainContent">
+        <div class="page-container">
+            <!-- 面包屑 -->
+            <div class="breadcrumb">
+                <a href="invoice-flow-config.html">开票流程配置</a>
+                <span class="sep">&gt;</span>
+                <span class="current">品名默认规则</span>
+            </div>
+
+            <!-- 提示条 -->
+            <div class="tips-banner">
+                <span>注意：当系统配置自动推送时，系统将按此规则推送，推送到对应的发票商品品名</span>
+            </div>
+
+            <!-- 筛选面板 -->
+            <div class="filter-panel">
+                <div class="filter-grid">
+                    <div class="filter-item">
+                        <span class="filter-label">服务主体：</span>
+                        <select class="filter-select">
+                            <option value="">[300100] ETARGT LIMITED</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">服务主体国家：</span>
+                        <select class="filter-select">
+                            <option value="">请选择服务主体国家</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">发票分类：</span>
+                        <select class="filter-select">
+                            <option value="">请选择发票分类</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">销售区域：</span>
+                        <select class="filter-select">
+                            <option value="">请选择销售区域</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">签约业务：</span>
+                        <select class="filter-select">
+                            <option value="">请选择签约业务</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">商品品名：</span>
+                        <select class="filter-select">
+                            <option value="">请选择商品品名</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">账单科目代码：</span>
+                        <input type="text" class="filter-input" placeholder="请输入账单科目代码">
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">创建人：</span>
+                        <input type="text" class="filter-input" placeholder="请输入创建人">
+                    </div>
+                    <div class="filter-item">
+                        <span class="filter-label">创建时间：</span>
+                        <div style="flex:1;display:flex;gap:4px;align-items:center;">
+                            <input type="text" class="filter-input" placeholder="开始日期" style="width:45%;">
+                            <span>~</span>
+                            <input type="text" class="filter-input" placeholder="结束日期" style="width:45%;">
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-actions">
+                    <button class="btn btn-primary">查 询</button>
+                    <button class="btn">重 置</button>
+                </div>
+            </div>
+
+            <!-- 工具栏 -->
+            <div class="table-toolbar">
+                <div class="table-toolbar-left">
+                    <button class="btn btn-primary">+ 新增</button>
+                    <button class="btn">删 除</button>
+                </div>
+            </div>
+
+            <!-- 表格 -->
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-checkbox"><input type="checkbox"></th>
+                            <th class="col-index">序号<div class="col-resizer"></div></th>
+                            <th>开票方式<div class="col-resizer"></div></th>
+                            <th>服务主体<div class="col-resizer"></div></th>
+                            <th>服务主体编码<div class="col-resizer"></div></th>
+                            <th>服务主体国家<div class="col-resizer"></div></th>
+                            <th>销售区域<div class="col-resizer"></div></th>
+                            <th>签约业务<div class="col-resizer"></div></th>
+                            <th>客户来源<div class="col-resizer"></div></th>
+                            <th>发票分类<div class="col-resizer"></div></th>
+                            <th>规则名称<div class="col-resizer"></div></th>
+                            <th>商品品名(本地语)<div class="col-resizer"></div></th>
+                            <th class="th-new-feature">代金券开票默认值<span class="new-badge">new</span><span class="tip-wrap"><i class="tip-icon">!</i><span class="tip-text">账单有代金券金额时，若账单开票品名规则为账单一级科目品名，则系统按配置的默认值进行金额冲抵，若是单一品名规则则默认冲抵在当前品名</span></span><div class="col-resizer"></div></th>
+                            <th>账单科目代码<div class="col-resizer"></div></th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td>1</td>
+                            <td>共享系统开票</td>
+                            <td>ETARGT LIMITED</td>
+                            <td>300100</td>
+                            <td>中国（香港）</td>
+                            <td>全部</td>
+                            <td>中研发、转运业务</td>
+                            <td>GD, EL, TO</td>
+                            <td>形式发票</td>
+                            <td>单一品名</td>
+                            <td>International Logistics Forwarder Service Fees</td>
+                            <td>--</td>
+                            <td></td>
+                            <td>
+                                <span class="col-action-link" onclick="openEditModal()">编辑</span>
+                                <span class="col-action-link">删除</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td>2</td>
+                            <td>共享系统开票</td>
+                            <td>ETARGT LIMITED</td>
+                            <td>300100</td>
+                            <td>中国（香港）</td>
+                            <td>北美洲及非中国</td>
+                            <td>海外仓储</td>
+                            <td>GD, EL, TO</td>
+                            <td>形式发票</td>
+                            <td>单一品名</td>
+                            <td>International Logistics Forwarder Service Fees</td>
+                            <td>--</td>
+                            <td></td>
+                            <td>
+                                <span class="col-action-link" onclick="openEditModal()">编辑</span>
+                                <span class="col-action-link">删除</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td>3</td>
+                            <td>共享系统开票</td>
+                            <td>ETARGT LIMITED</td>
+                            <td>300100</td>
+                            <td>中国（香港）</td>
+                            <td>澳洲/新西兰/英国/南欧/北欧/南美</td>
+                            <td>海外仓储</td>
+                            <td>EL</td>
+                            <td>形式发票</td>
+                            <td>账单一级科目品名</td>
+                            <td>Inbound Fees</td>
+                            <td>--</td>
+                            <td>inbound_fees</td>
+                            <td>
+                                <span class="col-action-link" onclick="openEditModal()">编辑</span>
+                                <span class="col-action-link">删除</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td>4</td>
+                            <td>共享系统开票</td>
+                            <td>ETARGT LIMITED</td>
+                            <td>300100</td>
+                            <td>中国（香港）</td>
+                            <td>澳洲/新西兰/英国/南欧/北欧/南美</td>
+                            <td>海外仓储</td>
+                            <td>EL</td>
+                            <td>形式发票</td>
+                            <td>账单一级科目品名</td>
+                            <td>Storage Fees</td>
+                            <td>--</td>
+                            <td>storage_charges</td>
+                            <td>
+                                <span class="col-action-link" onclick="openEditModal()">编辑</span>
+                                <span class="col-action-link">删除</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td>5</td>
+                            <td>共享系统开票</td>
+                            <td>ETARGT LIMITED</td>
+                            <td>300100</td>
+                            <td>中国（香港）</td>
+                            <td>澳洲/新西兰/英国/南欧/北欧/南美</td>
+                            <td>海外仓储</td>
+                            <td>EL</td>
+                            <td>形式发票</td>
+                            <td>账单一级科目品名</td>
+                            <td>Order Fees</td>
+                            <td>--</td>
+                            <td>order_charges</td>
+                            <td>
+                                <span class="col-action-link" onclick="openEditModal()">编辑</span>
+                                <span class="col-action-link">删除</span>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td>6</td>
+                            <td>共享系统开票</td>
+                            <td>ETARGT LIMITED</td>
+                            <td>300100</td>
+                            <td>中国（香港）</td>
+                            <td>澳洲/新西兰/英国/南欧/北欧/南美</td>
+                            <td>海外仓储</td>
+                            <td>EL</td>
+                            <td>形式发票</td>
+                            <td>账单一级科目品名</td>
+                            <td>Return Fees</td>
+                            <td>--</td>
+                            <td>returns_charges</td>
+                            <td>
+                                <span class="col-action-link" onclick="openEditModal()">编辑</span>
+                                <span class="col-action-link">删除</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- 分页 -->
+            <div class="pagination-bar">
+                <div class="pagination-info">共 10 条</div>
+                <div class="pagination">
+                    <div class="page-size">
+                        <select>
+                            <option>20条/页</option>
+                            <option>50条/页</option>
+                            <option>100条/页</option>
+                        </select>
+                    </div>
+                    <button class="page-btn">上一页</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">下一页</button>
+                    <span>前往</span>
+                    <input type="text" value="1" style="width:40px;text-align:center;border:1px solid #d9d9d9;border-radius:4px;padding:2px 4px;margin:0 4px;">
+                    <span>页</span>
+                </div>
+            </div>
+
+            <!-- 底部返回 -->
+            <div class="back-bar">
+                <button class="btn" onclick="window.location.href='invoice-flow-config.html'">返 回</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- 编辑弹窗 -->
+    <div class="modal-overlay" id="editModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">编辑</div>
+                <button class="modal-close" onclick="closeEditModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="form-row">
+                    <div class="form-label"><span class="required">*</span>开票方式：</div>
+                    <select class="form-select">
+                        <option>共享系统开票</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label"><span class="required">*</span>服务主体：</div>
+                    <select class="form-select">
+                        <option>[300100] ETARGT LIMITED</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label">服务主体国家：</div>
+                    <select class="form-select">
+                        <option>中国香港</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label">销售区域：</div>
+                    <select class="form-select">
+                        <option>美洲销售组</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label">签约业务：</div>
+                    <select class="form-select">
+                        <option>海外仓储</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label">客户来源：</div>
+                    <select class="form-select">
+                        <option>EL</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label"><span class="required">*</span>发票分类：</div>
+                    <select class="form-select">
+                        <option>形式发票</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label"><span class="required">*</span>规则名称：</div>
+                    <select class="form-select">
+                        <option>账单一级科目品名</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label">商品编码：</div>
+                    <select class="form-select">
+                        <option>FBU300100-005</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label">商品品名：</div>
+                    <input type="text" class="form-control" placeholder="自动带出商品品名" readonly>
+                </div>
+                <div class="form-row">
+                    <div class="form-label">商品品名(本地语)：</div>
+                    <input type="text" class="form-control" placeholder="自动带出商品品名(本地语)" readonly>
+                </div>
+                <div class="form-row">
+                    <div class="form-label" style="color:#52c41a;">代金券开票默认值：<span class="new-badge">new</span><span class="tip-wrap"><i class="tip-icon">!</i><span class="tip-text">账单有代金券金额时，若账单开票品名规则为账单一级科目品名，则系统按配置的默认值进行金额冲抵，若是单一品名规则则默认冲抵在当前品名</span></span></div>
+                    <select class="form-select">
+                        <option value="">请选择</option>
+                        <option value="是">是</option>
+                    </select>
+                </div>
+                <div class="form-row">
+                    <div class="form-label"><span class="required">*</span>账单科目代码：</div>
+                    <input type="text" class="form-control" value="storage_charges">
+                </div>
+                <div class="form-row">
+                    <div class="form-label">备注：</div>
+                    <input type="text" class="form-control" placeholder="请输入备注">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary">提 交</button>
+                <button class="btn" onclick="closeEditModal()">取 消</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="customer-service">&#128172;</div>
+
+    <script>
+        // 侧边栏折叠/展开
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        const sidebar = document.getElementById('sidebar');
+        if (sidebarToggleBtn) {
+            sidebarToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('collapsed');
+                sidebarToggleBtn.classList.toggle('collapsed');
+            });
+        }
+
+        // 侧边栏宽度拖拽
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        let isSidebarResizing = false;
+        let sidebarStartX = 0;
+        let sidebarStartWidth = 0;
+        if (sidebarResizer) {
+            sidebarResizer.addEventListener('mousedown', e => {
+                e.preventDefault();
+                isSidebarResizing = true;
+                sidebarResizer.classList.add('active');
+                sidebarStartX = e.pageX;
+                sidebarStartWidth = sidebar.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+        }
+        document.addEventListener('mousemove', e => {
+            if (!isSidebarResizing) return;
+            const dx = e.pageX - sidebarStartX;
+            const newWidth = sidebarStartWidth + dx;
+            if (newWidth >= 160 && newWidth <= 400) sidebar.style.width = newWidth + 'px';
+        });
+        document.addEventListener('mouseup', () => {
+            if (isSidebarResizing) {
+                isSidebarResizing = false;
+                if (sidebarResizer) sidebarResizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // 下拉框有值时改文字色
+        document.querySelectorAll('.filter-select').forEach(s => {
+            s.addEventListener('change', e => {
+                e.target.classList.toggle('has-value', e.target.value !== '');
+            });
+        });
+
+        // 列宽拖拽
+        let activeResizer = null, startX = 0, startWidth = 0, thElem = null, nextThElem = null, nextStartWidth = 0;
+        document.querySelectorAll('.col-resizer').forEach(r => {
+            r.addEventListener('mousedown', e => {
+                e.preventDefault(); e.stopPropagation();
+                activeResizer = r; r.classList.add('active');
+                thElem = r.parentElement; nextThElem = thElem.nextElementSibling;
+                startX = e.pageX; startWidth = thElem.offsetWidth;
+                if (nextThElem) nextStartWidth = nextThElem.offsetWidth;
+                document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+            });
+        });
+        document.addEventListener('mousemove', e => {
+            if (!activeResizer) return;
+            const dx = e.pageX - startX, w = startWidth + dx;
+            if (w > 40) {
+                thElem.style.width = w + 'px'; thElem.style.minWidth = w + 'px';
+                if (nextThElem && nextStartWidth - dx > 40) {
+                    nextThElem.style.width = (nextStartWidth - dx) + 'px';
+                    nextThElem.style.minWidth = (nextStartWidth - dx) + 'px';
+                }
+            }
+        });
+        document.addEventListener('mouseup', () => {
+            if (activeResizer) {
+                activeResizer.classList.remove('active');
+                activeResizer = null; thElem = null; nextThElem = null;
+                document.body.style.cursor = ''; document.body.style.userSelect = '';
+            }
+        });
+
+        // 全选
+        document.querySelectorAll('thead .col-checkbox input').forEach(hcb => {
+            hcb.addEventListener('change', () => {
+                document.querySelectorAll('tbody .col-checkbox input').forEach(cb => cb.checked = hcb.checked);
+            });
+        });
+
+        // 编辑弹窗
+        function openEditModal() {
+            document.getElementById('editModal').classList.add('active');
+        }
+        function closeEditModal() {
+            document.getElementById('editModal').classList.remove('active');
+        }
+        document.getElementById('editModal').addEventListener('click', e => {
+            if (e.target === document.getElementById('editModal')) closeEditModal();
+        });
+
+        // 提示图标 tooltip 定位
+        document.querySelectorAll('.tip-icon').forEach(function(icon) {
+            icon.addEventListener('mouseenter', function() {
+                var tip = this.nextElementSibling;
+                var rect = this.getBoundingClientRect();
+                tip.style.left = (rect.left + rect.width / 2) + 'px';
+                tip.style.top = (rect.top - 8) + 'px';
+                tip.style.transform = 'translate(-50%, -100%)';
+                tip.classList.add('show');
+            });
+            icon.addEventListener('mouseleave', function() {
+                this.nextElementSibling.classList.remove('show');
+            });
+        });
+    </script>
+</body>
+</html>

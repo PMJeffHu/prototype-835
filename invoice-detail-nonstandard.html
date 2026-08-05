@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发票明细（非标准场景）</title>
+    <link rel="prefetch" href="index.html">
+    <link rel="prefetch" href="invoice.html">
+    <link rel="prefetch" href="invoice-nonstandard.html">
+    <link rel="prefetch" href="verification.html">
+    <link rel="prefetch" href="verification-trace.html">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-size: 12px; color: #333; background-color: #f5f5f5;
+            display: flex; min-height: 100vh;
+        }
+        .sidebar { width: 230px; background: #fff; border-right: 1px solid #e8e8e8; flex-shrink: 0; display: flex; flex-direction: column; position: relative; transition: width 0s; }
+        .sidebar-toggle-btn { position: fixed; left: 230px; top: 50%; transform: translateY(-50%); width: 16px; height: 56px; background: #fff; border: 1px solid #e8e8e8; border-left: none; border-radius: 0 4px 4px 0; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 1000; transition: left 0.2s; }
+        .sidebar-toggle-btn:hover { background: #fafafa; }
+        .sidebar.collapsed + .main-content .sidebar-toggle-btn, .sidebar.collapsed ~ .sidebar-toggle-btn { left: 0; }
+        .sidebar.collapsed { width: 0 !important; min-width: 0 !important; padding: 0 !important; overflow: hidden; border-right: none; }
+        .sidebar-toggle-btn .toggle-icon { font-size: 12px; color: #999; }
+        .sidebar-toggle-btn.collapsed .toggle-icon { transform: rotate(180deg); }
+        .sidebar-nav { flex: 1; padding: 12px 0; }
+        .nav-item { display: flex; align-items: center; padding: 10px 20px; color: #333; text-decoration: none; font-size: 13px; cursor: pointer; }
+        .nav-item:hover { background: #f5f5f5; }
+        .nav-item.active { background: #f0f0fc; color: #5C62D9; border-right: 3px solid #5C62D9; font-weight: 500; }
+        .sidebar-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 100; transition: background 0.2s; }
+        .sidebar-resizer:hover, .sidebar-resizer.active { background: #5C62D9; }
+        .main-content { flex: 1; overflow-x: hidden; min-width: 0; }
+        .page-container { background: #fff; min-height: calc(100vh); display: flex; flex-direction: column; }
+        .breadcrumb { padding: 14px 20px; background: #fff; border-bottom: 1px solid #e8e8e8; font-size: 13px; color: #666; }
+        .breadcrumb a { color: #666; text-decoration: none; }
+        .breadcrumb a:hover { color: #5C62D9; }
+        .breadcrumb .sep { margin: 0 8px; color: #ccc; }
+        .breadcrumb .current { color: #333; font-weight: 500; }
+        .toolbar { padding: 12px 20px; border-bottom: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center; }
+        .toolbar-left, .toolbar-right { display: flex; gap: 8px; }
+        .btn { padding: 5px 12px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; color: #333; }
+        .btn:hover { border-color: #5C62D9; color: #5C62D9; }
+        .btn-primary { background: #5C62D9; border-color: #5C62D9; color: #fff; }
+        .btn-primary:hover { background: #4f54c0; color: #fff; }
+        .table-wrapper { overflow-x: auto; flex: 1; }
+        .table-wrapper::-webkit-scrollbar { height: 10px; }
+        .table-wrapper::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 5px; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; border: 2px solid #f5f5f5; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 1800px; }
+        thead th { background: #f0f0fc; padding: 10px 8px; text-align: left; font-weight: 500; color: #333; border-bottom: 1px solid #e8e8e8; white-space: nowrap; position: relative; user-select: none; overflow: hidden; }
+        .col-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 10; }
+        .col-resizer:hover, .col-resizer.active { background-color: #5C62D9; }
+        tbody td { padding: 12px 8px; border-bottom: 1px solid #f0f0f0; color: #333; vertical-align: middle; }
+        tbody tr:hover { background-color: #fafafa; }
+        .col-index { width: 60px; }
+        .col-docno { width: 220px; }
+        .col-applyno { width: 240px; }
+        .col-invoice-no { width: 200px; }
+        .col-scene { width: 120px; }
+        .col-invoice-code { width: 100px; }
+        .col-amount { width: 140px; }
+        .col-bill-date { width: 200px; }
+        .col-issue-date { width: 120px; }
+        .col-pay-date { width: 140px; }
+        .col-action { width: 200px; }
+        .amount { text-align: right; font-family: Consolas, Monaco, monospace; }
+        .amount .currency { display: block; color: #999; font-size: 11px; margin-top: 2px; }
+        .action-link { color: #5C62D9; cursor: pointer; display: block; line-height: 1.8; }
+        .action-link:hover { text-decoration: underline; }
+        .action-link.disabled { color: #999; cursor: not-allowed; }
+        .action-link.disabled:hover { text-decoration: none; }
+        .action-link-new { color: #52c41a !important; }
+        .action-link-new:hover { text-decoration: underline; color: #73d13d !important; }
+        .new-badge {
+            display: inline-block;
+            background: #52c41a;
+            color: #fff;
+            font-size: 8px;
+            padding: 0 3px;
+            border-radius: 2px;
+            margin-left: 1px;
+            line-height: 13px;
+            vertical-align: super;
+            font-weight: 500;
+            pointer-events: none;
+        }
+        .action-more-wrap { position: relative; display: inline-block; }
+        .action-more-dropdown { display: none; position: fixed; background: #fff; border: 1px solid #e8e8e8; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); z-index: 9999; min-width: 120px; padding: 4px 0; }
+        .action-more-dropdown .action-link { padding: 6px 12px; white-space: nowrap; line-height: 1.5; }
+        .action-more-dropdown .action-link:hover { background: #f5f5f5; text-decoration: none; }
+        .action-more-wrap.open .action-more-dropdown { display: block; }
+        .pagination-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-top: 1px solid #e8e8e8; background: #fafafa; }
+        .pagination-info { color: #666; }
+        .pagination { display: flex; align-items: center; gap: 4px; }
+        .page-btn { min-width: 28px; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; color: #333; }
+        .page-btn:hover { border-color: #5C62D9; color: #5C62D9; }
+        .page-btn.active { background: #5C62D9; border-color: #5C62D9; color: #fff; }
+        .page-size { display: flex; align-items: center; gap: 8px; }
+        .page-size select { height: 28px; padding: 0 8px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; font-size: 12px; }
+        .customer-service { position: fixed; right: 20px; bottom: 60px; width: 40px; height: 40px; background: #5C62D9; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; color: #fff; z-index: 1000; }
+
+        /* 弹窗遮罩 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        /* 弹窗 */
+        .modal {
+            background: #fff;
+            border-radius: 4px;
+            width: 900px;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .modal-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .modal-close {
+            font-size: 18px;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            outline: none;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #666;
+        }
+
+        .modal-body {
+            padding: 16px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-hint {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+
+        .modal-form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 12px;
+        }
+
+        .modal-form-label {
+            color: #333;
+            font-size: 12px;
+            min-width: 80px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .modal-form-label.required::before {
+            content: '*';
+            color: #f5222d;
+            margin-right: 4px;
+        }
+
+        .modal-form-input {
+            flex: 1;
+            max-width: 300px;
+            padding: 6px 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+            background: #fff;
+        }
+
+        .modal-form-input:focus {
+            border-color: #5C62D9;
+        }
+
+        .modal-footer {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            padding: 14px 20px;
+            border-top: 1px solid #e8e8e8;
+            background: #fafafa;
+        }
+
+        /* 提示图标 */
+        .tip-wrap { position: relative; display: inline-flex; }
+        .tip-icon { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: #bfbfbf; color: #fff; font-size: 10px; font-weight: bold; cursor: pointer; font-style: normal; line-height: 1; flex-shrink: 0; }
+        .tip-icon:hover { background: #5C62D9; }
+        .tip-text { display: none; position: fixed; background: #555; color: #fff; padding: 8px 12px; border-radius: 4px; white-space: normal; max-width: 280px; font-size: 12px; font-weight: normal; z-index: 99999; box-shadow: 0 2px 8px rgba(0,0,0,0.15); line-height: 1.5; }
+        .tip-text::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #555; }
+        .tip-text.show { display: block; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            
+            <a href="product-mapping.html" class="nav-item">
+            </a>
+            <a href="invoice-flow-config.html" class="nav-item">
+                <span class="nav-text">开票流程配置</span>
+            </a>
+            <a href="index.html" class="nav-item"><span class="nav-text">对账管理</span></a>
+            <a href="invoice.html" class="nav-item active"><span class="nav-text">发票管理</span></a>
+            <a href="verification.html" class="nav-item"><span class="nav-text">发票核销(新)</span></a>
+            <a href="verification-trace.html" class="nav-item"><span class="nav-text">发票台账</span></a>
+        </nav>
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+    </aside>
+
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn" title="收起/展开侧边栏">
+        <span class="toggle-icon">&#9664;</span>
+    </div>
+
+    <main class="main-content" id="mainContent">
+        <div class="page-container">
+            <div class="breadcrumb">
+                <a href="invoice.html">发票管理</a>
+                <span class="sep">&gt;</span>
+                <a href="invoice-nonstandard.html">非标准场景开票申请</a>
+                <span class="sep">&gt;</span>
+                <span class="current">发票明细</span>
+            </div>
+
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-index">序号<div class="col-resizer"></div></th>
+                            <th class="col-docno">单据申请号<div class="col-resizer"></div></th>
+                            <th class="col-applyno">发票申请号<div class="col-resizer"></div></th>
+                            <th class="col-invoice-no">发票号码<div class="col-resizer"></div></th>
+                            <th class="col-scene">开票场景<div class="col-resizer"></div></th>
+                            <th class="col-invoice-code">发票代码<div class="col-resizer"></div></th>
+                            <th class="col-amount">发票总金额<div class="col-resizer"></div></th>
+                            <th class="col-amount">合计税额<div class="col-resizer"></div></th>
+                            <th class="col-date">推送开票日期<div class="col-resizer"></div></th>
+                            <th class="col-date">开票日期<div class="col-resizer"></div></th>
+                            <th class="col-date">最迟付款日期（发票）<div class="col-resizer"></div></th>
+                            <th class="col-medium">发票备注<div class="col-resizer"></div></th>
+                            <th class="col-medium">财务BP备注<div class="col-resizer"></div></th>
+                            <th class="col-status">状态<div class="col-resizer"></div></th>
+                            <th class="col-status">发票状态<div class="col-resizer"></div></th>
+                            <th class="col-medium">发票文件<div class="col-resizer"></div></th>
+                            <th class="col-medium">推送人<div class="col-resizer"></div></th>
+                            <th class="col-medium">备注<div class="col-resizer"></div></th>
+                            <th class="col-action">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="col-index">1</td>
+                            <td class="col-docno">2075404823138361346</td>
+                            <td class="col-applyno">FPEL122202607101017560001</td>
+                            <td class="col-invoice-no">TESTINV0710</td>
+                            <td class="col-scene">非账单开票</td>
+                            <td class="col-invoice-code">--</td>
+                            <td class="col-amount amount">
+                                10.0000<span class="currency">USD</span>
+                            </td>
+                            <td class="col-amount amount">
+                                0.0000<span class="currency">USD</span>
+                            </td>
+                            <td class="col-date">2026-07-10 10:20:44</td>
+                            <td class="col-date">2026-07-10</td>
+                            <td class="col-date">--</td>
+                            <td class="col-medium">--</td>
+                            <td class="col-medium">--</td>
+                            <td class="col-status"><span class="status-tag status-processing">开票中</span></td>
+                            <td class="col-status"><span class="status-tag status-pending">正常</span></td>
+                            <td class="col-medium"><span class="action-link">下载</span></td>
+                            <td class="col-medium">lisi</td>
+                            <td class="col-medium">--</td>
+                            <td class="col-action">
+                                <span class="action-link action-link-new">手动红冲<span class="new-badge">new</span></span>
+                                <span class="action-link action-link-new">发起红冲<span class="new-badge">new</span></span>
+                                <span class="action-link disabled">作废</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多▼</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link">重试</span>
+                                        <span class="action-link">退回</span>
+                                        <span class="action-link">上传发票</span>
+                                        <span class="action-link">查看开票金额</span>
+                                        <span class="action-link">日志</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="pagination-bar">
+                <div class="pagination-info">共 1 条</div>
+                <div class="pagination">
+                    <button class="page-btn">上一页</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">下一页</button>
+                    <span>前往</span>
+                    <input type="text" value="1" style="width:40px;text-align:center;border:1px solid #d9d9d9;border-radius:4px;padding:2px 4px;margin:0 4px;">
+                    <span>页</span>
+                </div>
+                <div class="page-size">
+                    <select><option>20条/页</option><option>50条/页</option><option>100条/页</option></select>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- 手动红冲确认弹窗 -->
+    <div class="modal-overlay" id="manualRedWriteOffModal">
+        <div class="modal" style="width: 520px;">
+            <div class="modal-header">
+                <span class="modal-title">确认手动红冲</span>
+                <button class="modal-close" id="manualRedWriteOffClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-hint" style="margin-bottom: 0; line-height: 1.8;">
+                    当前发票已和账单2075404823138361346产生核销关系，发票红冲完成系统将自动反核销，请确认是否继续发起红冲？
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="manualRedWriteOffConfirm">确定</button>
+                <button class="btn btn-default" id="manualRedWriteOffCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 发起红冲确认弹窗 -->
+    <div class="modal-overlay" id="initiateRedWriteOffModal">
+        <div class="modal" style="width: 520px;">
+            <div class="modal-header">
+                <span class="modal-title">确认发起红冲</span>
+                <button class="modal-close" id="initiateRedWriteOffClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-hint" style="margin-bottom: 0; line-height: 1.8;">
+                    当前发票已和账单2075404823138361346产生核销关系，发票红冲完成系统将自动反核销，请确认是否继续发起红冲？
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="initiateRedWriteOffConfirm">确定</button>
+                <button class="btn btn-default" id="initiateRedWriteOffCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="customer-service">💬</div>
+
+    <script>
+        const sidebarToggleBtn=document.getElementById('sidebarToggleBtn'),sidebar=document.getElementById('sidebar');
+        sidebarToggleBtn&&sidebarToggleBtn.addEventListener('click',e=>{e.stopPropagation();sidebar.classList.toggle('collapsed');sidebarToggleBtn.classList.toggle('collapsed')});
+        const sidebarResizer=document.getElementById('sidebarResizer');let isSidebarResizing=!1,sidebarStartX=0,sidebarStartWidth=0;
+        sidebarResizer&&sidebarResizer.addEventListener('mousedown',e=>{e.preventDefault();isSidebarResizing=!0;sidebarResizer.classList.add('active');sidebarStartX=e.pageX;sidebarStartWidth=sidebar.offsetWidth;document.body.style.cursor='col-resize';document.body.style.userSelect='none'});
+        document.addEventListener('mousemove',e=>{if(!isSidebarResizing)return;const d=e.pageX-sidebarStartX,w=sidebarStartWidth+d;w>=160&&w<=400&&(sidebar.style.width=w+'px')});
+        document.addEventListener('mouseup',()=>{isSidebarResizing&&(isSidebarResizing=!1,sidebarResizer&&sidebarResizer.classList.remove('active'),document.body.style.cursor='',document.body.style.userSelect='')});
+        let activeResizer=null,startX=0,startWidth=0,thElem=null,nextThElem=null,nextStartWidth=0;
+        document.querySelectorAll('.col-resizer').forEach(r=>{r.addEventListener('mousedown',e=>{e.preventDefault();e.stopPropagation();activeResizer=r;r.classList.add('active');thElem=r.parentElement;nextThElem=thElem.nextElementSibling;startX=e.pageX;startWidth=thElem.offsetWidth;nextThElem&&(nextStartWidth=nextThElem.offsetWidth);document.body.style.cursor='col-resize';document.body.style.userSelect='none'})});
+        document.addEventListener('mousemove',e=>{if(!activeResizer)return;const d=e.pageX-startX,w=startWidth+d;w>40&&(thElem.style.width=w+'px',thElem.style.minWidth=w+'px',nextThElem&&nextStartWidth-d>40&&(nextThElem.style.width=(nextStartWidth-d)+'px',nextThElem.style.minWidth=(nextStartWidth-d)+'px'))});
+        document.addEventListener('mouseup',()=>{activeResizer&&(activeResizer.classList.remove('active'),activeResizer=null,thElem=null,nextThElem=null,document.body.style.cursor='',document.body.style.userSelect='')});
+        document.querySelectorAll('.action-more-toggle').forEach(function(toggle) {
+            toggle.addEventListener('click', function(e) {
+                e.stopPropagation();
+                var wrap = toggle.closest('.action-more-wrap');
+                var dropdown = wrap.querySelector('.action-more-dropdown');
+                document.querySelectorAll('.action-more-wrap.open').forEach(function(w) {
+                    if (w !== wrap) w.classList.remove('open');
+                });
+                var isOpen = wrap.classList.toggle('open');
+                if (isOpen && dropdown) {
+                    var rect = toggle.getBoundingClientRect();
+                    dropdown.style.top = (rect.bottom + 2) + 'px';
+                    dropdown.style.left = rect.left + 'px';
+                }
+            });
+        });
+        document.addEventListener('click', function() {
+            document.querySelectorAll('.action-more-wrap.open').forEach(function(w) { w.classList.remove('open'); });
+        });
+
+        // 弹窗置顶管理
+        let topZIndex = 2000;
+
+        function bringToFront(modal) {
+            topZIndex++;
+            modal.style.zIndex = topZIndex;
+        }
+
+        // 通用弹窗打开/关闭方法
+        function openModal(modalId) {
+            var modal = document.getElementById(modalId);
+            modal.classList.add('active');
+            bringToFront(modal);
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal(modalId) {
+            var modal = document.getElementById(modalId);
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        // 手动红冲弹窗
+        var manualRedWriteOffModal = document.getElementById('manualRedWriteOffModal');
+        var manualRedWriteOffClose = document.getElementById('manualRedWriteOffClose');
+        var manualRedWriteOffCancel = document.getElementById('manualRedWriteOffCancel');
+        var manualRedWriteOffConfirm = document.getElementById('manualRedWriteOffConfirm');
+
+        function openManualRedWriteOffModal() {
+            openModal('manualRedWriteOffModal');
+        }
+
+        function closeManualRedWriteOffModal() {
+            closeModal('manualRedWriteOffModal');
+        }
+
+        if (manualRedWriteOffClose) manualRedWriteOffClose.addEventListener('click', closeManualRedWriteOffModal);
+        if (manualRedWriteOffCancel) manualRedWriteOffCancel.addEventListener('click', closeManualRedWriteOffModal);
+        if (manualRedWriteOffConfirm) {
+            manualRedWriteOffConfirm.addEventListener('click', function() {
+                alert('手动红冲已提交！');
+                closeManualRedWriteOffModal();
+            });
+        }
+        if (manualRedWriteOffModal) {
+            manualRedWriteOffModal.addEventListener('click', function(e) {
+                if (e.target === manualRedWriteOffModal) closeManualRedWriteOffModal();
+            });
+        }
+
+        // 发起红冲弹窗
+        var initiateRedWriteOffModal = document.getElementById('initiateRedWriteOffModal');
+        var initiateRedWriteOffClose = document.getElementById('initiateRedWriteOffClose');
+        var initiateRedWriteOffCancel = document.getElementById('initiateRedWriteOffCancel');
+        var initiateRedWriteOffConfirm = document.getElementById('initiateRedWriteOffConfirm');
+
+        function openInitiateRedWriteOffModal() {
+            openModal('initiateRedWriteOffModal');
+        }
+
+        function closeInitiateRedWriteOffModal() {
+            closeModal('initiateRedWriteOffModal');
+        }
+
+        if (initiateRedWriteOffClose) initiateRedWriteOffClose.addEventListener('click', closeInitiateRedWriteOffModal);
+        if (initiateRedWriteOffCancel) initiateRedWriteOffCancel.addEventListener('click', closeInitiateRedWriteOffModal);
+        if (initiateRedWriteOffConfirm) {
+            initiateRedWriteOffConfirm.addEventListener('click', function() {
+                alert('发起红冲已提交！');
+                closeInitiateRedWriteOffModal();
+            });
+        }
+        if (initiateRedWriteOffModal) {
+            initiateRedWriteOffModal.addEventListener('click', function(e) {
+                if (e.target === initiateRedWriteOffModal) closeInitiateRedWriteOffModal();
+            });
+        }
+
+        // 绑定操作列中的"手动红冲"和"发起红冲"链接
+        document.querySelectorAll('tbody .action-link').forEach(function(link) {
+            var text = link.childNodes[0] ? link.childNodes[0].textContent.trim() : link.textContent.trim();
+            if (text === '手动红冲') {
+                link.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    openManualRedWriteOffModal();
+                });
+            } else if (text === '发起红冲') {
+                link.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    openInitiateRedWriteOffModal();
+                });
+            }
+        });
+
+        // 提示图标 tooltip 定位
+        document.querySelectorAll('.tip-icon').forEach(function(icon) {
+            icon.addEventListener('mouseenter', function() {
+                var tip = this.nextElementSibling;
+                var rect = this.getBoundingClientRect();
+                tip.style.left = (rect.left + rect.width / 2) + 'px';
+                tip.style.top = (rect.top - 8) + 'px';
+                tip.style.transform = 'translate(-50%, -100%)';
+                tip.classList.add('show');
+            });
+            icon.addEventListener('mouseleave', function() {
+                this.nextElementSibling.classList.remove('show');
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发票编辑</title>
+    <link rel="prefetch" href="index.html">
+    <link rel="prefetch" href="invoice.html">
+    <link rel="prefetch" href="verification.html">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-size: 12px;
+            color: #333;
+            background-color: #f5f5f5;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: #fff;
+            border-right: 1px solid #e8e8e8;
+            width: 200px;
+            min-width: 160px;
+            max-width: 400px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: width 0s;
+        }
+        .sidebar-toggle-btn:hover { background: #5C62D9; color: #fff; border-color: #5C62D9; }
+        .sidebar.collapsed { width: 0 !important; min-width: 0 !important; padding: 0 !important; overflow: hidden; border-right: none; }
+        .sidebar.collapsed  .sidebar.collapsed .sidebar-nav, .sidebar.collapsed .sidebar-resizer { opacity: 0; pointer-events: none; }
+        .sidebar.collapsed + .main-content .sidebar-toggle-btn, .sidebar.collapsed ~ .sidebar-toggle-btn { left: 8px; }
+        .sidebar-toggle-btn .toggle-icon { display: inline-block; transition: transform 0.3s; }
+        .sidebar-toggle-btn.collapsed .toggle-icon { transform: rotate(180deg); }
+        .sidebar-nav { padding: 12px 0; flex: 1; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: #666; text-decoration: none; transition: all 0.2s; cursor: pointer; font-size: 13px; }
+        .nav-item:hover { background: #f5f5f5; color: #5C62D9; }
+        .nav-item.active { background: #f0f0f8; color: #5C62D9; border-right: 3px solid #5C62D9; }
+        .sidebar-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 100; transition: background 0.2s; }
+        .sidebar-resizer:hover, .sidebar-resizer.active { background: #5C62D9; }
+
+        .main-content { flex: 1; overflow-x: hidden; min-width: 0; }
+        .page-container { padding: 16px; max-width: 1600px; }
+
+        /* 面包屑 */
+        .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #666; font-size: 12px; }
+        .breadcrumb a { color: #5C62D9; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .breadcrumb-separator { color: #999; }
+        .breadcrumb-current { color: #333; font-weight: 500; }
+
+        /* 区块标题 */
+        .section-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 12px; padding-left: 8px; border-left: 3px solid #5C62D9; }
+        .section-title .sub { font-size: 12px; color: #f5222d; font-weight: normal; margin-left: 8px; }
+        .section-title-new { color: #52c41a !important; border-left-color: #52c41a !important; }
+        .th-new-feature { color: #52c41a !important; }
+        .new-badge {
+            display: inline-block;
+            background: #52c41a;
+            color: #fff;
+            font-size: 8px;
+            padding: 0 3px;
+            border-radius: 2px;
+            margin-left: 1px;
+            line-height: 13px;
+            vertical-align: super;
+            font-weight: 500;
+            pointer-events: none;
+        }
+
+        /* 面板 */
+        .panel { background: #fff; border: 1px solid #e8e8e8; border-radius: 4px; padding: 16px; margin-bottom: 12px; }
+
+        /* 表格通用 */
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead th { background-color: #f0f0f8; color: #666; font-weight: 500; text-align: left; padding: 10px 8px; border-bottom: 1px solid #e8e8e8; white-space: nowrap; position: relative; user-select: none; }
+        .deductible-table thead th { position: sticky; top: 0; z-index: 10; }
+        .deductible-table .col-index { position: sticky; left: 0; z-index: 5; background: #f0f0f8; }
+        .deductible-table .col-action { position: sticky; right: 0; z-index: 5; background: #fff; }
+        .deductible-table tbody td.col-index { background: #fff; }
+        .deductible-table thead th.col-index { z-index: 15; }
+        .deductible-table thead th.col-action { z-index: 15; background: #f0f0f8; }
+        tbody td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; color: #333; vertical-align: middle; line-height: 1.5; }
+        tbody tr:hover { background-color: #fafafa; }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .col-checkbox { width: 40px; text-align: center; }
+        .col-index { width: 50px; }
+        .col-small { width: 80px; }
+        .col-medium { width: 120px; }
+        .col-large { width: 180px; }
+        .col-action { width: 80px; }
+        .col-check { width: 30px; }
+        /* 列设置齿轮图标 */
+        .col-settings-wrapper { position: relative; display: inline-block; margin-left: 4px; }
+        .col-settings-btn { cursor: pointer; font-size: 14px; color: #999; line-height: 1; }
+        .col-settings-btn:hover { color: #5C62D9; }
+        /* 列设置下拉面板 */
+        .col-settings-panel {
+            display: none;
+            position: absolute;
+            right: 0;
+            top: 100%;
+            background: #fff;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            z-index: 9999;
+            min-width: 160px;
+            padding: 8px 0;
+        }
+        .col-settings-panel.open { display: block; }
+        .col-settings-panel .panel-title {
+            padding: 6px 12px 8px;
+            font-weight: 600;
+            font-size: 12px;
+            color: #333;
+            border-bottom: 1px solid #f0f0f0;
+            margin-bottom: 4px;
+        }
+        .col-settings-panel label {
+            display: flex;
+            align-items: center;
+            padding: 5px 12px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #333;
+            white-space: nowrap;
+        }
+        .col-settings-panel label:hover { background: #f5f5ff; }
+        .col-settings-panel label input[type="checkbox"] { margin-right: 6px; cursor: pointer; }
+        .amount { text-align: right; font-family: "SF Mono", Monaco, monospace; }
+        .amount .currency { color: #999; margin-left: 4px; }
+
+        /* 表单行 */
+        .form-row { display: flex; align-items: center; gap: 24px; margin-bottom: 12px; flex-wrap: wrap; }
+        .form-row:last-child { margin-bottom: 0; }
+        .form-item { display: flex; align-items: center; gap: 8px; }
+        .form-item .label { color: #666; min-width: 80px; text-align: right; flex-shrink: 0; }
+        .form-item input, .form-item select, .form-item textarea { flex: 1; padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 12px; outline: none; min-width: 120px; }
+        .form-item input:focus, .form-item select:focus, .form-item textarea:focus { border-color: #5C62D9; }
+        .form-item input::placeholder { color: #bfbfbf; }
+        .form-item textarea { resize: vertical; min-height: 40px; font-family: inherit; }
+
+        /* 抬头信息网格 */
+        .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 16px; margin-bottom: 12px; }
+        .info-item { display: flex; flex-direction: column; gap: 4px; }
+        .info-item.full-width { grid-column: span 2; }
+        .info-label { color: #666; font-size: 12px; }
+        .info-value { color: #333; font-size: 12px; padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; min-height: 28px; display: flex; align-items: center; }
+        .info-value input { width: 100%; border: none; outline: none; font-size: 12px; background: transparent; padding: 0; }
+
+        /* 按钮 */
+        .btn { padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; border: 1px solid transparent; transition: all 0.2s; outline: none; }
+        .btn-primary { background-color: #5C62D9; color: #fff; border-color: #5C62D9; }
+        .btn-primary:hover { background-color: #4a50c0; }
+        .btn-default { background-color: #fff; border-color: #d9d9d9; color: #333; }
+        .btn-default:hover { border-color: #5C62D9; color: #5C62D9; }
+        .btn-sm { padding: 4px 12px; font-size: 12px; }
+
+        /* 工具栏 */
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .toolbar-left { display: flex; gap: 8px; align-items: center; }
+        .toolbar-right { display: flex; gap: 8px; align-items: center; }
+
+        /* 合计行 */
+        .summary-row { display: flex; gap: 32px; padding: 12px 0; color: #f5222d; font-size: 12px; border-top: 1px solid #e8e8e8; margin-top: 8px; }
+        .summary-row span { display: flex; align-items: center; gap: 4px; }
+        .summary-label { color: #666; }
+
+        /* 底部按钮栏 */
+        .footer-bar { display: flex; justify-content: center; gap: 12px; padding: 16px; background: #fafafa; border-top: 1px solid #e8e8e8; position: sticky; bottom: 0; }
+
+        /* 发票行表格特殊列 */
+        .invoice-line-table { min-width: 2400px; }
+        .invoice-line-table th { background: #f0f0f8; font-size: 11px; padding: 8px 6px; }
+        .invoice-line-table td { padding: 8px 6px; font-size: 11px; }
+        .invoice-line-table td input, .invoice-line-table td select { width: 100%; padding: 3px 4px; border: 1px solid #d9d9d9; border-radius: 3px; font-size: 11px; outline: none; }
+        .invoice-line-table td input:focus, .invoice-line-table td select:focus { border-color: #5C62D9; }
+        .invoice-line-table .required::after { content: '*'; color: #f5222d; margin-left: 2px; }
+
+        /* 红色提示 */
+        .hint-red { color: #f5222d; font-size: 12px; margin-bottom: 8px; }
+
+        /* 链接 */
+        .action-link { color: #5C62D9; cursor: pointer; margin-right: 8px; }
+        .action-link:hover { text-decoration: underline; }
+
+        .customer-service { position: fixed; right: 20px; bottom: 20px; width: 40px; height: 40px; background: #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; z-index: 1000; }
+
+        /* 弹窗 */
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.45); z-index: 2000; display: none; align-items: center; justify-content: center; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: #fff; border-radius: 4px; width: 500px; max-width: 90vw; max-height: 90vh; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.15); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; padding: 14px 20px; border-bottom: 1px solid #e8e8e8; }
+        .modal-title { font-size: 14px; font-weight: 600; color: #333; }
+        .modal-close { font-size: 18px; color: #999; cursor: pointer; background: none; border: none; outline: none; line-height: 1; }
+        .modal-close:hover { color: #666; }
+        .modal-body { padding: 20px; overflow-y: auto; flex: 1; }
+        .modal-footer { display: flex; justify-content: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #e8e8e8; background: #fafafa; }
+
+        .modal-form-row { display: flex; align-items: center; margin-bottom: 16px; gap: 12px; }
+        .modal-form-row:last-child { margin-bottom: 0; }
+        .modal-form-label { color: #333; font-size: 12px; min-width: 100px; text-align: right; flex-shrink: 0; }
+        .modal-form-label.required::before { content: '*'; color: #f5222d; margin-right: 4px; }
+        .modal-form-input { flex: 1; padding: 6px 10px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 12px; outline: none; background: #fff; }
+        .modal-form-input:focus { border-color: #5C62D9; }
+        .modal-form-input[readonly] { background: #f5f5f5; color: #666; }
+        .modal-hint { color: #666; font-size: 12px; margin-bottom: 16px; line-height: 1.8; }
+
+        .clickable-amount { color: #5C62D9; cursor: pointer; text-decoration: underline; }
+        .clickable-amount:hover { color: #4a50c0; }
+
+        .remove-link { color: #5C62D9; cursor: pointer; }
+        .remove-link:hover { text-decoration: underline; }
+
+        .add-row-btn { display: flex; justify-content: center; padding: 8px; border: 1px dashed #d9d9d9; border-radius: 4px; color: #5C62D9; cursor: pointer; margin-top: 8px; }
+        .add-row-btn:hover { border-color: #5C62D9; background: #f0f0f8; }
+
+        /* 文字按钮 */
+        .btn-text { background: none; border: none; color: #666; cursor: pointer; font-size: 12px; padding: 4px 8px; }
+        .btn-text:hover { color: #5C62D9; }
+
+        /* 发票分组行 */
+        .invoice-group-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 4px 0; }
+        .invoice-group-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: #333; }
+
+        /* 全选行 */
+        .select-all-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+        .select-all-row label { display: flex; align-items: center; gap: 4px; cursor: pointer; font-size: 12px; color: #333; }
+
+        /* 操作列按钮 */
+        .op-btn { color: #5C62D9; cursor: pointer; font-size: 12px; }
+        .op-btn:hover { text-decoration: underline; }
+
+        /* 核销匹配 - 余额汇总条 */
+        .balance-summary { display: flex; align-items: center; gap: 24px; padding: 10px 0; margin-top: 10px; border-top: 1px solid #e8e8e8; font-size: 12px; }
+        .balance-matched { color: #52c41a; }
+        .balance-unmatched { color: #f5222d; }
+        .diff-indicator { font-family: "SF Mono", Monaco, monospace; }
+        .diff-positive { color: #52c41a; }
+        .diff-negative { color: #f5222d; }
+
+        /* 账单数链接 */
+        .bill-count-link { color: #5C62D9; cursor: pointer; }
+        .bill-count-link:hover { text-decoration: underline; }
+
+        /* 弹窗内账单匹配表格 */
+        .modal-bill-table { min-width: 900px; }
+        .modal-bill-table th { font-size: 11px; padding: 8px 6px; background: #f0f0f8; }
+        .modal-bill-table td { padding: 6px; font-size: 12px; }
+        .modal-bill-table td input, .modal-bill-table td select { width: 100%; padding: 4px 6px; border: 1px solid #d9d9d9; border-radius: 3px; font-size: 12px; outline: none; }
+        .modal-bill-table td input:focus, .modal-bill-table td select:focus { border-color: #5C62D9; }
+        .modal-bill-table td input.readonly-calc { background: #f5f5f5; color: #666; }
+        .modal-bill-table .remove-bill-link { color: #f5222d; cursor: pointer; font-size: 12px; }
+        .modal-bill-table .remove-bill-link:hover { text-decoration: underline; }
+
+        /* 弹窗内发票信息只读文本 */
+        .modal-info-text { color: #333; font-size: 12px; }
+        .modal-info-text.amount { font-family: "SF Mono", Monaco, monospace; }
+
+        .tip-wrap { position: relative; display: inline-flex; }
+        .tip-icon { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: #bfbfbf; color: #fff; font-size: 10px; font-weight: bold; cursor: pointer; font-style: normal; line-height: 1; flex-shrink: 0; margin-left: 4px; }
+        .tip-icon:hover { background: #5C62D9; }
+        .tip-text { display: none; position: fixed; background: #555; color: #fff; padding: 8px 12px; border-radius: 4px; white-space: normal; max-width: 280px; font-size: 12px; font-weight: normal; z-index: 99999; box-shadow: 0 2px 8px rgba(0,0,0,0.15); line-height: 1.5; }
+        .tip-text::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #555; }
+        .tip-text.show { display: block; }
+    </style>
+</head>
+<body>
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            
+            <a href="product-mapping.html" class="nav-item">
+            </a>
+            <a href="invoice-flow-config.html" class="nav-item">
+                <span class="nav-text">开票流程配置</span>
+            </a>
+            <a href="index.html" class="nav-item">
+                <span class="nav-text">对账管理</span>
+            </a>
+            <a href="invoice.html" class="nav-item active">
+                <span class="nav-text">发票管理</span>
+            </a>
+            <a href="verification.html" class="nav-item">
+                <span class="nav-text">发票核销(新)</span>
+            </a>
+            <a href="verification-trace.html" class="nav-item">
+                <span class="nav-text">发票台账</span>
+            </a>
+        </nav>
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+    </aside>
+
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn" title="收起/展开侧边栏">
+        <span class="toggle-icon">&#9664;</span>
+    </div>
+
+    <main class="main-content" id="mainContent">
+        <div class="page-container">
+            <!-- 面包屑 -->
+            <div class="breadcrumb">
+                <a href="invoice.html">发票管理</a>
+                <span class="breadcrumb-separator">&gt;</span>
+                <a href="invoice.html">标准场景开票申请</a>
+                <span class="breadcrumb-separator">&gt;</span>
+                <span class="breadcrumb-current">发票编辑</span>
+            </div>
+
+            <!-- 开票申请信息 -->
+            <div class="panel">
+                <div class="section-title">开票申请信息<span class="sub">（注意：若存在账单争议情况请修改客户申请金额）</span></div>
+                <div class="table-wrapper">
+                    <table id="billTable">
+                        <thead>
+                            <tr>
+                                <th class="col-index">序号</th>
+                                <th class="col-medium">客户代码</th>
+                                <th class="col-medium">账户编号</th>
+                                <th class="col-large">签约主体名称</th>
+                                <th class="col-large">服务主体</th>
+                                <th class="col-large">账单号</th>
+                                <th class="col-medium">账单周期</th>
+                                <th class="col-small">账单币种</th>
+                                <th class="col-medium th-new-feature">客户申请金额<span class="new-badge">new</span></th>
+                                <th class="col-action">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>G2968</td>
+                                <td>ACG296801</td>
+                                <td>深圳市中科技有限公司</td>
+                                <td>深圳易可达科技有限公司</td>
+                                <td>B20260315G29680001</td>
+                                <td>2025-03-01 00:00:00至2026-03-14 23:59:59</td>
+                                <td>USD</td>
+                                <td class="amount"><span class="clickable-amount" data-amount="356.36">356.36</span></td>
+                                <td>
+                                    <span class="action-link" onclick="removeBillTableRow(this)">移除</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="add-row-btn" onclick="openAddBillModal()">+</div>
+            </div>
+
+            <!-- 客户备注、开票方式等 -->
+            <div class="panel">
+                <div class="form-row">
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">客户备注：</span>
+                        <input type="text" placeholder="请输入客户备注">
+                    </div>
+                    <div class="form-item">
+                        <span class="label">开票方式：</span>
+                        <input type="text" value="FPS标准手信" readonly style="background: #f5f5f5; color: #666;">
+                    </div>
+                    <div class="form-item">
+                        <span class="label">发票类型：</span>
+                        <input type="text" value="形式发票" readonly style="background: #f5f5f5; color: #666;">
+                    </div>
+                    <div class="form-item">
+                        <span class="label">开票币种汇率：</span>
+                        <input type="text" value="指定汇率" readonly style="background: #f5f5f5; color: #666;">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 发票抬头信息 -->
+            <div class="panel">
+                <div class="section-title">发票抬头信息</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">购方名称</span>
+                        <div class="info-value"><input type="text" value="深圳市恒彩科技有限公司"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">购方税号</span>
+                        <div class="info-value"><input type="text" value="91440300MA5G14RX9F"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">购方地址电话</span>
+                        <div class="info-value"><input type="text" value="13129323093"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">购方开户行账号</span>
+                        <div class="info-value"><input type="text" value="755999235516091"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">销方名称</span>
+                        <div class="info-value"><input type="text" value=""></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">销方税号</span>
+                        <div class="info-value"><input type="text" value="9144030035417R05A"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">销方地址</span>
+                        <div class="info-value"><input type="text" value=""></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">销方开户行账号</span>
+                        <div class="info-value"><input type="text" value="6200000000000453123-EUR"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 可核销发票信息 -->
+            <div class="panel">
+                <div class="section-title section-title-new">可核销发票信息<span class="new-badge">new</span></div>
+                <div class="toolbar" style="margin-bottom: 8px;">
+                    <button class="btn btn-sm" id="deductibleEditBtn" style="background: #5C62D9; color: #fff;">编 辑</button>
+                </div>
+                <div class="table-wrapper" style="max-height: 420px; overflow-y: auto;">
+                    <table class="deductible-table">
+                        <thead>
+                            <tr>
+                                <th class="col-index">序号<div class="col-resizer"></div></th>
+                                <th class="col-medium">发票号<div class="col-resizer"></div></th>
+                                <th class="col-small">开票场景<div class="col-resizer"></div></th>
+                                <th class="col-medium">发票日期<div class="col-resizer"></div></th>
+                                <th class="col-small">发票币种<div class="col-resizer"></div></th>
+                                <th class="col-medium">发票金额<div class="col-resizer"></div></th>
+                                <th class="col-medium">可核销金额<div class="col-resizer"></div></th>
+                                <th class="col-medium">发票本次核销金额<div class="col-resizer"></div></th>
+                                <th class="col-billno th-new-feature">关联账单号<span class="new-badge">new</span><span class="tip-wrap"><i class="tip-icon">!</i><span class="tip-text">数据选择范围为当前开票申请信息范围内的数据</span></span><div class="col-resizer"></div></th>
+                                <th class="col-small th-new-feature">关联账单币种<span class="new-badge">new</span><span class="tip-wrap"><i class="tip-icon">!</i><span class="tip-text">数据选择范围为当前开票申请信息范围内的数据</span></span><div class="col-resizer"></div></th>
+                                <th class="col-small th-new-feature">开票币种<span class="new-badge">new</span><span class="tip-wrap"><i class="tip-icon">!</i><span class="tip-text">根据客户开票流程配置开票规则展示</span></span><div class="col-resizer"></div></th>
+                                <th class="col-medium th-new-feature">客户申请金额<span class="new-badge">new</span><div class="col-resizer"></div></th>
+                                <th class="col-medium">发票汇率<div class="col-resizer"></div></th>
+                                <th class="col-medium">账单核销金额<span class="tip-wrap"><i class="tip-icon">!</i><span class="tip-text">账单核销金额=客户申请金额*发票汇率，系统提供默认值，支持修改，以修改后值为准</span></span><div class="col-resizer"></div></th>
+                                <th class="col-action">操作<span class="col-settings-wrapper"><span class="col-settings-btn" id="deductibleColSettingsBtn" title="列设置">&#9881;</span><div class="col-settings-panel" id="deductibleColSettingsPanel"><div class="panel-title">列设置</div></div></span><div class="col-resizer"></div></th>
+                            </tr>
+                        </thead>
+                        <tbody id="deductibleTableBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 发票行信息 -->
+            <div class="panel">
+                <div class="section-title section-title-new">发票行信息<span class="new-badge">new</span></div>
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <button class="btn btn-sm btn-primary">新增</button>
+                        <button class="btn btn-sm btn-primary">批量导入</button>
+                        <button class="btn btn-sm btn-primary">批量上传附件</button>
+                        <button class="btn btn-sm btn-primary">移除</button>
+                    </div>
+                </div>
+                <div class="select-all-row">
+                    <label><input type="checkbox"> 全选</label>
+                </div>
+                <div class="hint-red">修改开票金额和剩余本次开票金额（税金）是否同步修改</div>
+                <div class="invoice-group-row">
+                    <label><input type="checkbox"> 第1张发票</label>
+                </div>
+                <div class="table-wrapper">
+                    <table class="invoice-line-table">
+                        <thead>
+                            <tr>
+                                <th class="col-index">序号</th>
+                                <th class="col-medium">账单号</th>
+                                <th class="col-medium">商品品名</th>
+                                <th class="col-medium">商品品名（本地语）</th>
+                                <th class="col-medium">商品编码</th>
+                                <th class="col-small">账单币种</th>
+                                <th class="col-medium">待开票金额</th>
+                                <th class="col-medium">剩余可开票金额(含税)</th>
+                                <th class="col-medium">账单币种金额(含税)</th>
+                                <th class="col-small">开票币种</th>
+                                <th class="col-medium">发票汇率</th>
+                                <th class="col-medium">本次开票金额</th>
+                                <th class="col-medium">本次开票金额 (税费)</th>
+                                <th class="col-medium">价税合计</th>
+                                <th class="col-small">开票币种是否修改</th>
+                                <th class="col-small">发票汇率是否修改</th>
+                                <th class="col-small">开票金额是否修改</th>
+                                <th class="col-medium">发票备注</th>
+                                <th class="col-medium">财务BP备注</th>
+                                <th class="col-action">申请附件</th>
+                                <th class="col-action">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td><select><option>请选择账单</option></select></td>
+                                <td><select><option>请选择商品</option></select></td>
+                                <td>--</td>
+                                <td><input type="text" placeholder="请输入商品编码"></td>
+                                <td><select><option>请选择账单币种</option></select></td>
+                                <td class="amount">0.00</td>
+                                <td class="amount">0.00</td>
+                                <td class="amount">0.00</td>
+                                <td>--</td>
+                                <td><input type="text" placeholder="请输入发票汇率"></td>
+                                <td><input type="text" placeholder=""></td>
+                                <td><input type="text" placeholder=""></td>
+                                <td class="amount">0.00</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td><input type="text" placeholder=""></td>
+                                <td><input type="text" placeholder=""></td>
+                                <td><span class="op-btn">上传</span></td>
+                                <td><span class="op-btn">删除</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="add-row-btn" onclick="addInvoiceLineRow()">+</div>
+                <div class="summary-row">
+                    <span><span class="summary-label">合计：</span></span>
+                    <span><span class="summary-label">发票张数：</span>1</span>
+                </div>
+            </div>
+
+            <!-- 底部按钮 -->
+            <div class="footer-bar">
+                <button class="btn btn-primary">保存并推送</button>
+                <button class="btn btn-default">保存</button>
+                <button class="btn btn-default" onclick="window.location.href='invoice.html'">取消</button>
+            </div>
+        </div>
+    </main>
+
+    <div class="customer-service">💬</div>
+
+    <!-- 修改客户申请金额弹窗 -->
+    <div class="modal-overlay" id="editAmountModal">
+        <div class="modal" style="width: 420px;">
+            <div class="modal-header">
+                <span class="modal-title">修改客户申请金额</span>
+                <button class="modal-close" id="editAmountClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-form-row">
+                    <span class="modal-form-label">客户申请金额</span>
+                    <input type="text" class="modal-form-input" id="originalAmount" value="11" readonly>
+                </div>
+                <div class="modal-form-row">
+                    <span class="modal-form-label required">修改后含税金额</span>
+                    <input type="text" class="modal-form-input" id="newAmount" value="10">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="editAmountConfirm">确认</button>
+                <button class="btn btn-default" id="editAmountCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 添加新账单弹窗 -->
+    <div class="modal-overlay" id="addBillModal">
+        <div class="modal" style="width: 500px;">
+            <div class="modal-header">
+                <span class="modal-title">添加新账单</span>
+                <button class="modal-close" id="addBillClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-form-row">
+                    <span class="modal-form-label required">账单号</span>
+                    <input type="text" class="modal-form-input" id="newBillNo" placeholder="回车确认">
+                </div>
+                <div class="modal-hint">
+                    说明：<br>
+                    1. 对账单生成时间在2026/1/7之后的账单支持添加<br>
+                    2. 对账单生成时间2026/1/7之前且补充过历史数据的账单支持添加<br>
+                    3. 其他情况不支持在此处添加账单，需到对账管理页面发起
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="addBillConfirm">提交</button>
+                <button class="btn btn-default" id="addBillCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 新增可核销发票弹窗（核销匹配） -->
+    <div class="modal-overlay" id="addDeductibleModal">
+        <div class="modal" style="width: 1050px;">
+            <div class="modal-header">
+                <span class="modal-title" id="deductibleModalTitle">发票核销</span>
+                <button class="modal-close" id="addDeductibleClose">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh;">
+                <!-- 发票核销信息 -->
+                <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #333;">发票核销信息</div>
+                <div class="table-wrapper" style="margin-bottom: 16px;">
+                    <table class="modal-bill-table">
+                        <thead>
+                            <tr>
+                                <th>发票号</th>
+                                <th>发票日期</th>
+                                <th>发票币种</th>
+                                <th>发票金额</th>
+                                <th>可核销金额</th>
+                                <th>发票本次核销金额</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><span id="modalInvNo" class="modal-info-text">--</span></td>
+                                <td><span id="modalInvDate" class="modal-info-text">--</span></td>
+                                <td><span id="modalInvCurrency" class="modal-info-text">--</span></td>
+                                <td><span id="modalInvAmount" class="modal-info-text amount">--</span></td>
+                                <td><span id="modalInvDeductible" class="modal-info-text amount">--</span></td>
+                                <td><input type="text" class="modal-form-input" id="modalInvWriteOff" placeholder="请输入核销金额" oninput="updateMatchingBalance()"></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <!-- 账单核销信息 -->
+                <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; color: #333;">账单核销信息</div>
+                <div class="table-wrapper">
+                    <table class="modal-bill-table">
+                        <thead>
+                            <tr>
+                                <th>账单号</th>
+                                <th>账单周期</th>
+                                <th>账单币种</th>
+                                <th>客户申请金额</th>
+                                <th>本次核销金额(账单币种)</th>
+                                <th>发票汇率</th>
+                                <th>本次核销金额(发票币种)</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalBillTableBody"></tbody>
+                    </table>
+                    <div class="add-row-btn" onclick="addBillRowToModal()">+</div>
+                </div>
+                <!-- 余额汇总 -->
+                <div class="balance-summary" id="balanceSummary">
+                    <span>账单核销金额合计(发票币种)：<strong id="balanceTotal">0.00</strong></span>
+                    <span>发票本次核销金额：<strong id="balanceTarget">0.00</strong></span>
+                    <span>差额：<strong id="balanceDiff" class="diff-indicator">0.00</strong></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="addDeductibleConfirm">确定</button>
+                <button class="btn btn-default" id="addDeductibleCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ========== 可核销发票数据模型 ==========
+        // 账单数据（mock）
+        var billData = [
+            { billNo: 'B20260315G29680001', period: '2025-03-01 00:00:00至2026-03-14 23:59:59', currency: 'USD', invoiceableAmount: 356.36, customerCode: 'G2968', accountNo: 'ACG296801', signingEntity: '深圳市中科技有限公司', serviceEntity: '深圳易可达科技有限公司' },
+            { billNo: 'B20260701001', period: '2026-07-01 00:00:00至2026-07-31 23:59:59', currency: 'USD', invoiceableAmount: 500.00, customerCode: 'G2968', accountNo: 'ACG296801', signingEntity: '深圳市中科技有限公司', serviceEntity: '深圳易可达科技有限公司' },
+            { billNo: 'B20260702001', period: '2026-07-01 00:00:00至2026-07-15 23:59:59', currency: 'CNY', invoiceableAmount: 3540.00, customerCode: 'G2968', accountNo: 'ACG296801', signingEntity: '深圳市中科技有限公司', serviceEntity: '深圳易可达科技有限公司' },
+            { billNo: 'B20260703001', period: '2026-06-01 00:00:00至2026-06-30 23:59:59', currency: 'EUR', invoiceableAmount: 1100.00, customerCode: 'G2968', accountNo: 'ACG296801', signingEntity: '深圳市中科技有限公司', serviceEntity: '深圳易可达科技有限公司' },
+            { billNo: 'B20260704001', period: '2026-05-01 00:00:00至2026-05-31 23:59:59', currency: 'GBP', invoiceableAmount: 850.00, customerCode: 'G2968', accountNo: 'ACG296801', signingEntity: '深圳市中科技有限公司', serviceEntity: '深圳易可达科技有限公司' }
+        ];
+
+        // 可核销发票数据
+        var deductibleInvoices = [
+            {
+                id: 1, invoiceNo: 'INV202607001', scene: '账单开票', date: '2026-07-01',
+                currency: 'USD', amount: 1000.00, deductibleAmount: 800.00, writeOffAmount: 500.00,
+                billRows: [
+                    { billNo: 'B20260315G29680001', billCurrency: 'USD', clientAmount: 356.36, exchangeRate: 1.0000, billWriteOffAmount: 300.00 },
+                    { billNo: 'B20260701001', billCurrency: 'USD', clientAmount: 500.00, exchangeRate: 1.0000, billWriteOffAmount: 200.00 }
+                ]
+            },
+            {
+                id: 2, invoiceNo: 'INV202607002', scene: '账单开票', date: '2026-07-05',
+                currency: 'CNY', amount: 5000.00, deductibleAmount: 3000.00, writeOffAmount: 2000.00,
+                billRows: [
+                    { billNo: 'B20260702001', billCurrency: 'CNY', clientAmount: 3540.00, exchangeRate: 1.0000, billWriteOffAmount: 2000.00 }
+                ]
+            },
+            {
+                id: 3, invoiceNo: 'INV202607003', scene: '预充值开票', date: '2026-07-10',
+                currency: 'EUR', amount: 2500.00, deductibleAmount: 1500.00, writeOffAmount: 1000.00,
+                billRows: [
+                    { billNo: 'B20260703001', billCurrency: 'EUR', clientAmount: 1100.00, exchangeRate: 1.0000, billWriteOffAmount: 1000.00 }
+                ]
+            },
+            {
+                id: 4, invoiceNo: 'INV202607004', scene: '跨期账单开票', date: '2026-07-12',
+                currency: 'GBP', amount: 3200.00, deductibleAmount: 2000.00, writeOffAmount: 1500.00,
+                billRows: [
+                    { billNo: 'B20260704001', billCurrency: 'GBP', clientAmount: 850.00, exchangeRate: 1.0000, billWriteOffAmount: 800.00 },
+                    { billNo: 'B20260315G29680001', billCurrency: 'USD', clientAmount: 356.36, exchangeRate: 1.2500, billWriteOffAmount: 560.00 }
+                ]
+            },
+            {
+                id: 5, invoiceNo: 'INV202607005', scene: '非账单开票', date: '2026-07-15',
+                currency: 'JPY', amount: 100000.00, deductibleAmount: 80000.00, writeOffAmount: 50000.00,
+                billRows: []
+            },
+            {
+                id: 6, invoiceNo: 'INV202607006', scene: '账单开票', date: '2026-07-18',
+                currency: 'USD', amount: 3000.00, deductibleAmount: 2500.00, writeOffAmount: 1800.00,
+                billRows: [
+                    { billNo: 'B20260701001', billCurrency: 'USD', clientAmount: 500.00, exchangeRate: 1.0000, billWriteOffAmount: 600.00 },
+                    { billNo: 'B20260702001', billCurrency: 'CNY', clientAmount: 3540.00, exchangeRate: 7.1000, billWriteOffAmount: 600.00 },
+                    { billNo: 'B20260703001', billCurrency: 'EUR', clientAmount: 1100.00, exchangeRate: 1.1000, billWriteOffAmount: 600.00 }
+                ]
+            },
+            {
+                id: 7, invoiceNo: 'INV202607007', scene: '预充值开票', date: '2026-07-20',
+                currency: 'USD', amount: 1500.00, deductibleAmount: 1200.00, writeOffAmount: 500.00,
+                billRows: [
+                    { billNo: 'B20260704001', billCurrency: 'GBP', clientAmount: 850.00, exchangeRate: 1.2000, billWriteOffAmount: -83.33 },
+                    { billNo: 'B20260701001', billCurrency: 'USD', clientAmount: 500.00, exchangeRate: 1.0000, billWriteOffAmount: 583.33 }
+                ]
+            },
+            {
+                id: 8, invoiceNo: 'INV202607008', scene: '账单开票', date: '2026-07-21',
+                currency: 'CNY', amount: 8000.00, deductibleAmount: 6000.00, writeOffAmount: 4000.00,
+                billRows: [
+                    { billNo: 'B20260702001', billCurrency: 'CNY', clientAmount: 3540.00, exchangeRate: 1.0000, billWriteOffAmount: 4000.00 }
+                ]
+            },
+            {
+                id: 9, invoiceNo: 'INV202607009', scene: '非账单开票', date: '2026-07-22',
+                currency: 'EUR', amount: 1800.00, deductibleAmount: 1200.00, writeOffAmount: 800.00,
+                billRows: [
+                    { billNo: 'B20260703001', billCurrency: 'EUR', clientAmount: 1100.00, exchangeRate: 1.0000, billWriteOffAmount: 800.00 }
+                ]
+            },
+            {
+                id: 10, invoiceNo: 'INV202607010', scene: '跨期账单开票', date: '2026-07-22',
+                currency: 'USD', amount: 2200.00, deductibleAmount: 1800.00, writeOffAmount: 1200.00,
+                billRows: [
+                    { billNo: 'B20260315G29680001', billCurrency: 'USD', clientAmount: 356.36, exchangeRate: 1.0000, billWriteOffAmount: 500.00 },
+                    { billNo: 'B20260701001', billCurrency: 'USD', clientAmount: 500.00, exchangeRate: 1.0000, billWriteOffAmount: 700.00 }
+                ]
+            }
+        ];
+
+        // 修改客户申请金额弹窗
+        const editAmountModal = document.getElementById('editAmountModal');
+        const editAmountClose = document.getElementById('editAmountClose');
+        const editAmountCancel = document.getElementById('editAmountCancel');
+        const editAmountConfirm = document.getElementById('editAmountConfirm');
+        const originalAmountInput = document.getElementById('originalAmount');
+        const newAmountInput = document.getElementById('newAmount');
+        let currentEditAmountCell = null;
+
+        function openEditAmountModal(amount, cell) {
+            currentEditAmountCell = cell;
+            originalAmountInput.value = amount;
+            editAmountModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeEditAmountModal() {
+            editAmountModal.classList.remove('active');
+            document.body.style.overflow = '';
+            currentEditAmountCell = null;
+        }
+
+        if (editAmountClose) editAmountClose.addEventListener('click', closeEditAmountModal);
+        if (editAmountCancel) editAmountCancel.addEventListener('click', closeEditAmountModal);
+        if (editAmountConfirm) {
+            editAmountConfirm.addEventListener('click', () => {
+                if (currentEditAmountCell) {
+                    const newAmount = newAmountInput.value;
+                    currentEditAmountCell.querySelector('.clickable-amount').textContent = newAmount;
+                    currentEditAmountCell.querySelector('.clickable-amount').setAttribute('data-amount', newAmount);
+                }
+                closeEditAmountModal();
+            });
+        }
+        if (editAmountModal) {
+            editAmountModal.addEventListener('click', e => {
+                if (e.target === editAmountModal) closeEditAmountModal();
+            });
+        }
+
+        // 点击客户申请金额打开弹窗
+        document.querySelectorAll('.clickable-amount').forEach(el => {
+            el.addEventListener('click', () => {
+                const amount = el.getAttribute('data-amount');
+                const cell = el.closest('td');
+                openEditAmountModal(amount, cell);
+            });
+        });
+
+        // 添加新账单弹窗
+        const addBillModal = document.getElementById('addBillModal');
+        const addBillClose = document.getElementById('addBillClose');
+        const addBillCancel = document.getElementById('addBillCancel');
+        const addBillConfirm = document.getElementById('addBillConfirm');
+        const newBillNoInput = document.getElementById('newBillNo');
+
+        function openAddBillModal() {
+            addBillModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+            if (newBillNoInput) newBillNoInput.value = '';
+        }
+
+        function closeAddBillModal() {
+            addBillModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        if (addBillClose) addBillClose.addEventListener('click', closeAddBillModal);
+        if (addBillCancel) addBillCancel.addEventListener('click', closeAddBillModal);
+        if (addBillConfirm) {
+            addBillConfirm.addEventListener('click', () => {
+                const billNo = newBillNoInput.value.trim();
+                if (!billNo) {
+                    alert('请输入账单号');
+                    return;
+                }
+                alert('账单 ' + billNo + ' 已添加！');
+                closeAddBillModal();
+            });
+        }
+        if (addBillModal) {
+            addBillModal.addEventListener('click', e => {
+                if (e.target === addBillModal) closeAddBillModal();
+            });
+        }
+
+        // ========== 可核销发票模块 ==========
+        var deductibleEditMode = false;
+
+        var deductibleEditBtn = document.getElementById("deductibleEditBtn");
+        if (deductibleEditBtn) {
+            deductibleEditBtn.addEventListener("click", function() {
+                deductibleEditMode = !deductibleEditMode;
+                if (deductibleEditMode) {
+                    this.textContent = "保 存";
+                } else {
+                    this.textContent = "编 辑";
+                }
+                renderDeductibleTable();
+            });
+        }
+
+        var CURRENCY_CODES = ['AED','AUD','BRL','CAD','CHF','CNY','DKK','EUR','GBP','HKD','IDR','INR','JPY','KRW','MOP','MXN','MYR','NOK','NZD','PHP','RUB','SAR','SEK','SGD','THB','TWD','USD','VND','ZAR'];
+
+        function billOptionsHtml(sel) {
+            var o = '<option value="">请选择账单</option>';
+            billData.forEach(function(b) {
+                o += '<option value="' + b.billNo + '" data-currency="' + b.currency + '" data-amount="' + b.invoiceableAmount + '"' + (sel === b.billNo ? ' selected' : '') + '>' + b.billNo + '</option>';
+            });
+            return o;
+        }
+
+        function currencySelectHtml(sel) {
+            var o = '<select class="modal-form-input" style="width:100%;" onchange="var tr=this.closest(\'tr\'); var idx=parseInt(tr.getAttribute(\'data-invoice-index\')); var bi=Array.from(tr.parentElement.children).indexOf(tr)-1; if(idx>=0&&bi>=0&&deductibleInvoices[idx]&&deductibleInvoices[idx].billRows[bi]){deductibleInvoices[idx].billRows[bi].billCurrency=this.value;}">';
+            o += '<option value="">请选择</option>';
+            CURRENCY_CODES.forEach(function(c) {
+                o += '<option value="' + c + '"' + (sel === c ? ' selected' : '') + '>' + c + '</option>';
+            });
+            o += '</select>';
+            return o;
+        }
+
+        function renderDeductibleTable() {
+            var t = document.getElementById("deductibleTableBody");
+            if (!t) return; t.innerHTML = "";
+            deductibleInvoices.forEach(function(inv, idx) {
+                inv.id = idx + 1;
+                var fmt = function(v,d) { return v.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d}); };
+                // 编辑模式下：发票本次核销金额 = 当前发票行账单核销金额合计
+                if (deductibleEditMode) updateInvWriteOff(idx);
+
+                if (!deductibleEditMode) {
+                    // 展示模式：每张发票一行，从billRows汇总展示
+                    updateInvWriteOff(idx);
+                    var billNos = inv.billRows.length > 0 ? inv.billRows.map(function(br) { return br.billNo; }).join('<br>') : '--';
+                    var billCurrencies = inv.billRows.length > 0 ? inv.billRows.map(function(br) { return br.billCurrency; }).join('<br>') : '--';
+                    var clientAmountTotal = inv.billRows.length > 0 ? inv.billRows.reduce(function(s, br) { return s + br.clientAmount; }, 0) : 0;
+                    var exchangeRate = inv.billRows.length > 0 ? inv.billRows[0].exchangeRate : 0;
+                    var billWriteOffTotal = inv.billRows.length > 0 ? inv.billRows.reduce(function(s, br) { return s + br.billWriteOffAmount; }, 0) : 0;
+                    var ic = "<td>" + inv.id + "</td>" +
+                        "<td>" + inv.invoiceNo + "</td>" +
+                        "<td>" + inv.scene + "</td>" +
+                        "<td>" + inv.date + "</td>" +
+                        "<td>" + inv.currency + "</td>" +
+                        "<td class=\"amount\">" + fmt(inv.amount,2) + "</td>" +
+                        "<td class=\"amount\">" + fmt(inv.deductibleAmount,2) + "</td>" +
+                        "<td class=\"amount\">" + inv.writeOffAmount.toFixed(2) + "</td>" +
+                        "<td>" + billNos + "</td>" +
+                        "<td>" + billCurrencies + "</td>" +
+                        "<td>" + inv.currency + "</td>" +
+                        "<td class=\"amount\">" + (inv.billRows.length > 0 ? fmt(clientAmountTotal,2) : '--') + "</td>" +
+                        "<td class=\"amount\">" + (inv.billRows.length > 0 ? fmt(exchangeRate,4) : '--') + "</td>" +
+                        "<td class=\"amount\">" + (inv.billRows.length > 0 ? fmt(billWriteOffTotal,2) : '--') + "</td>" +
+                        "<td></td>";
+                    var r = document.createElement("tr"); r.setAttribute("data-invoice-index", idx); r.innerHTML = ic; t.appendChild(r);
+                } else {
+                    // 编辑模式：展开billRows，rowspan合并发票列
+                    var rc = inv.billRows.length || 1;
+                    var ic = "<td rowspan=\"" + rc + "\">" + inv.id + "</td>" +
+                        "<td rowspan=\"" + rc + "\">" + inv.invoiceNo + "</td>" +
+                        "<td rowspan=\"" + rc + "\">" + inv.scene + "</td>" +
+                        "<td rowspan=\"" + rc + "\">" + inv.date + "</td>" +
+                        "<td rowspan=\"" + rc + "\">" + inv.currency + "</td>" +
+                        "<td rowspan=\"" + rc + "\" class=\"amount\">" + fmt(inv.amount,2) + "</td>" +
+                        "<td rowspan=\"" + rc + "\" class=\"amount\">" + fmt(inv.deductibleAmount,2) + "</td>" +
+                        "<td rowspan=\"" + rc + "\" class=\"amount\">" + inv.writeOffAmount.toFixed(2) + "</td>";
+
+                    if (inv.billRows.length === 0) {
+                        var bc = "<td><select class=\"modal-form-input\" style=\"width:100%;\" onchange=\"onBillRowSelect(this)\">" + billOptionsHtml("") + "</select></td>" +
+                            "<td>" + currencySelectHtml("") + "</td>" +
+                            "<td>" + inv.currency + "</td>" +
+                            "<td><input class=\"modal-form-input\" value=\"\" style=\"width:80px;\"></td>" +
+                            "<td><input class=\"modal-form-input\" value=\"\" style=\"width:80px;\"></td>" +
+                            "<td><input class=\"modal-form-input\" value=\"\" style=\"width:80px;\" onchange=\"updateInvWriteOff(" + idx + ");renderDeductibleTable();\"></td>" +
+                            "<td><span class=\"action-link\" onclick=\"addBillRow(" + idx + ")\">新增行</span></td>";
+                        var r = document.createElement("tr"); r.setAttribute("data-invoice-index", idx); r.innerHTML = ic + bc; t.appendChild(r);
+                    } else {
+                        inv.billRows.forEach(function(br, bi) {
+                            var bc = "<td><select class=\"modal-form-input\" style=\"width:100%;\" onchange=\"onBillRowSelect(this)\">" + billOptionsHtml(br.billNo) + "</select></td>" +
+                                "<td>" + currencySelectHtml(br.billCurrency) + "</td>" +
+                                "<td>" + inv.currency + "</td>" +
+                                "<td><input class=\"modal-form-input\" value=\"" + br.clientAmount.toFixed(2) + "\" style=\"width:80px;\" onchange=\"br.clientAmount=parseFloat(this.value)||0\"></td>" +
+                                "<td><input class=\"modal-form-input\" value=\"" + br.exchangeRate.toFixed(4) + "\" style=\"width:80px;\" onchange=\"br.exchangeRate=parseFloat(this.value)||0\"></td>" +
+                                "<td><input class=\"modal-form-input\" value=\"" + br.billWriteOffAmount.toFixed(2) + "\" style=\"width:80px;\" onchange=\"br.billWriteOffAmount=parseFloat(this.value)||0;updateInvWriteOff(" + idx + ");renderDeductibleTable();\"></td>" +
+                                "<td><span class=\"action-link\" onclick=\"addBillRow(" + idx + ")\">新增行</span> <span class=\"action-link\" style=\"color:#f5222d;\" onclick=\"removeBillRow(" + idx + "," + bi + ")\">删除</span></td>";
+                            var r = document.createElement("tr"); r.setAttribute("data-invoice-index", idx); r.innerHTML = ic + bc; t.appendChild(r);
+                            ic = "";
+                        });
+                    }
+                }
+            });
+        }
+
+        function onBillRowSelect(sel) {
+            var o = sel.options[sel.selectedIndex];
+            var c = o.getAttribute("data-currency") || "";
+            var tr = sel.closest("tr");
+            var currencySel = tr.querySelector("td:nth-child(10) select");
+            if (currencySel && c) currencySel.value = c;
+            var idx = parseInt(tr.getAttribute("data-invoice-index"));
+            var bi = Array.from(tr.parentElement.children).indexOf(tr) - 1;
+            if (idx >= 0 && bi >= 0 && deductibleInvoices[idx] && deductibleInvoices[idx].billRows[bi]) {
+                deductibleInvoices[idx].billRows[bi].billCurrency = c;
+            }
+        }
+
+        function updateInvWriteOff(idx) {
+            var inv = deductibleInvoices[idx];
+            if (!inv) return;
+            var total = 0;
+            (inv.billRows || []).forEach(function(br) {
+                total += br.billWriteOffAmount || 0;
+            });
+            inv.writeOffAmount = total;
+        }
+
+        function addBillRow(idx) {
+            deductibleInvoices[idx].billRows.push({ billNo: "", billCurrency: "--", clientAmount: 0, exchangeRate: 1.0000, billWriteOffAmount: 0 });
+            renderDeductibleTable();
+        }
+
+        function removeBillRow(idx, bi) {
+            deductibleInvoices[idx].billRows.splice(bi, 1);
+            renderDeductibleTable();
+        }
+
+        function initDeductibleModule() {
+            // 列设置下拉面板
+            var colNames = ['发票号','开票场景','发票日期','发票币种','发票金额','可核销金额','发票本次核销金额','关联账单号','关联账单币种','开票币种','客户申请金额','发票汇率','账单核销金额'];
+            var panel = document.getElementById('deductibleColSettingsPanel');
+            if (panel) {
+                colNames.forEach(function(name, i) {
+                    var colIndex = i + 2; // +2 because 序号 is col 1 and columns start at 2
+                    var label = document.createElement('label');
+                    var cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.checked = true;
+                    cb.setAttribute('data-col', colIndex);
+                    cb.addEventListener('change', function() {
+                        updateDeductibleColVisibility();
+                    });
+                    label.appendChild(cb);
+                    label.appendChild(document.createTextNode(name));
+                    panel.appendChild(label);
+                });
+            }
+
+            // 列设置按钮点击
+            var btn = document.getElementById('deductibleColSettingsBtn');
+            if (btn) {
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    var p = document.getElementById('deductibleColSettingsPanel');
+                    if (p) p.classList.toggle('open');
+                });
+            }
+            // 点击其他地方关闭面板
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.col-settings-wrapper')) {
+                    var p = document.getElementById('deductibleColSettingsPanel');
+                    if (p) p.classList.remove('open');
+                }
+            });
+
+            renderDeductibleTable();
+        }
+
+        function updateDeductibleColVisibility() {
+            var panel = document.getElementById('deductibleColSettingsPanel');
+            if (!panel) return;
+            var rules = [];
+            panel.querySelectorAll('input[type=checkbox]').forEach(function(cb) {
+                var colIndex = parseInt(cb.getAttribute('data-col'));
+                if (!cb.checked) {
+                    rules.push('.deductible-table thead th:nth-child(' + colIndex + '), .deductible-table tbody td:nth-child(' + colIndex + ') { display: none; }');
+                }
+            });
+            var styleId = 'deductibleColStyle';
+            var styleEl = document.getElementById(styleId);
+            if (!styleEl) {
+                styleEl = document.createElement('style');
+                styleEl.id = styleId;
+                document.head.appendChild(styleEl);
+            }
+            styleEl.textContent = rules.join('\n');
+        }
+
+        initDeductibleModule();
+
+        // 移除账单行
+        function removeBillTableRow(el) {
+            const row = el.closest('tr');
+            if (row) {
+                row.remove();
+            }
+        }
+
+        // 添加发票行
+        function addInvoiceLineRow() {
+            const tbody = document.querySelector('.invoice-line-table tbody');
+            const rowCount = tbody.querySelectorAll('tr').length + 1;
+            const newRow = document.createElement('tr');
+            newRow.innerHTML = `
+                <td>${rowCount}</td>
+                <td><select><option>请选择账单</option></select></td>
+                <td><select><option>请选择商品</option></select></td>
+                <td>--</td>
+                <td><input type="text" placeholder="请输入商品编码"></td>
+                <td><select><option>请选择账单币种</option></select></td>
+                <td class="amount">0.00</td>
+                <td class="amount">0.00</td>
+                <td class="amount">0.00</td>
+                <td>--</td>
+                <td><input type="text" placeholder="请输入发票汇率"></td>
+                <td><input type="text" placeholder=""></td>
+                <td><input type="text" placeholder=""></td>
+                <td class="amount">0.00</td>
+                <td>否</td>
+                <td>否</td>
+                <td>否</td>
+                <td><input type="text" placeholder=""></td>
+                <td><input type="text" placeholder=""></td>
+                <td><span class="op-btn">上传</span></td>
+                <td><span class="op-btn" onclick="this.closest('tr').remove()">删除</span></td>
+            `;
+            tbody.appendChild(newRow);
+        }
+
+        // 侧边栏折叠
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        const sidebar = document.getElementById('sidebar');
+        if (sidebarToggleBtn) {
+            sidebarToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('collapsed');
+                sidebarToggleBtn.classList.toggle('collapsed');
+            });
+        }
+
+        // 侧边栏宽度拖拽
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        let isSidebarResizing = false;
+        let sidebarStartX = 0;
+        let sidebarStartWidth = 0;
+
+        if (sidebarResizer) {
+            sidebarResizer.addEventListener('mousedown', e => {
+                e.preventDefault();
+                isSidebarResizing = true;
+                sidebarResizer.classList.add('active');
+                sidebarStartX = e.pageX;
+                sidebarStartWidth = sidebar.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+        }
+
+        document.addEventListener('mousemove', e => {
+            if (!isSidebarResizing) return;
+            const dx = e.pageX - sidebarStartX;
+            const newWidth = sidebarStartWidth + dx;
+            const minWidth = 160;
+            const maxWidth = 400;
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                sidebar.style.width = newWidth + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isSidebarResizing) {
+                isSidebarResizing = false;
+                sidebarResizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // 提示图标 tooltip
+        document.querySelectorAll('.tip-icon').forEach(function(icon) {
+            icon.addEventListener('mouseenter', function() {
+                var tip = this.nextElementSibling;
+                var rect = this.getBoundingClientRect();
+                tip.style.left = (rect.left + rect.width / 2) + 'px';
+                tip.style.top = (rect.top - 8) + 'px';
+                tip.style.transform = 'translate(-50%, -100%)';
+                tip.classList.add('show');
+            });
+            icon.addEventListener('mouseleave', function() {
+                this.nextElementSibling.classList.remove('show');
+            });
+        });
+    </script>
+</body>
+</html>

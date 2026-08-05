@@ -1,0 +1,1860 @@
+?<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>发票台账</title>
+    <link rel="prefetch" href="index.html">
+    <link rel="prefetch" href="invoice.html">
+    <link rel="prefetch" href="verification.html">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-size: 12px;
+            color: #333;
+            background-color: #f5f5f5;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* 侧边栏*/
+        .sidebar {
+            background: #fff;
+            border-right: 1px solid #e8e8e8;
+            width: 200px;
+            min-width: 160px;
+            max-width: 400px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: width 0s;
+        }
+
+
+        .sidebar-toggle-btn {
+            position: fixed;
+            left: 200px;
+            top: 20px;
+            width: 28px;
+            height: 28px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            color: #666;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1000;
+            transition: left 0.3s, background 0.2s, color 0.2s;
+        }
+
+        .sidebar-toggle-btn:hover {
+            background: #5C62D9;
+            color: #fff;
+            border-color: #5C62D9;
+        }
+
+        .sidebar.collapsed + .main-content .sidebar-toggle-btn,
+        .sidebar.collapsed ~ .sidebar-toggle-btn {
+            left: 8px;
+        }
+
+        .sidebar.collapsed {
+            width: 0 !important;
+            min-width: 0 !important;
+            padding: 0 !important;
+            overflow: hidden;
+            border-right: none;
+        }
+
+        .sidebar.collapsed .sidebar-nav,
+        .sidebar.collapsed .sidebar-resizer {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .sidebar-toggle-btn .toggle-icon {
+            display: inline-block;
+            transition: transform 0.3s;
+        }
+
+        .sidebar-toggle-btn.collapsed .toggle-icon {
+            transform: rotate(180deg);
+        }
+
+        .sidebar-nav {
+            padding: 12px 0;
+            flex: 1;
+        }
+
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 20px;
+            color: #666;
+            text-decoration: none;
+            transition: all 0.2s;
+            cursor: pointer;
+            font-size: 13px;
+        }
+
+        .nav-item:hover {
+            background: #f5f5f5;
+            color: #5C62D9;
+        }
+
+        .nav-item.active {
+            background: #f0f0f8;
+            color: #5C62D9;
+            border-right: 3px solid #5C62D9;
+        }
+
+
+        .sidebar-resizer {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            cursor: col-resize;
+            z-index: 100;
+            transition: background 0.2s;
+        }
+
+        .sidebar-resizer:hover,
+        .sidebar-resizer.active {
+            background: #5C62D9;
+        }
+
+        /* 主内容区 */
+        .main-content {
+            flex: 1;
+            overflow-x: hidden;
+            min-width: 0;
+        }
+
+        .page-container {
+            padding: 16px;
+            max-width: 1600px;
+        }
+
+        /* 筛选面板*/
+        .filter-panel {
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 12px;
+        }
+
+        .filter-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 16px;
+        }
+
+        .filter-row:last-child {
+            margin-bottom: 0;
+        }
+
+        .filter-label {
+            color: #666;
+            min-width: 80px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .filter-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            flex: 1;
+        }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 12px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #333;
+            background: #fff;
+        }
+
+        .tag:hover {
+            border-color: #5C62D9;
+            color: #5C62D9;
+        }
+
+        .tag.active {
+            background-color: #5C62D9;
+            border-color: #5C62D9;
+            color: #fff;
+        }
+
+        /* 表单网格 */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px 16px;
+            margin-bottom: 12px;
+        }
+
+        .form-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .form-item .label {
+            color: #666;
+            min-width: 70px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+
+        .form-item input,
+        .form-item select {
+            flex: 1;
+            padding: 5px 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+            min-width: 0;
+        }
+
+        .form-item input:focus,
+        .form-item select:focus {
+            border-color: #5C62D9;
+        }
+
+        .form-item input::placeholder {
+            color: #bfbfbf;
+        }
+
+        .date-range {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+        }
+
+        .date-range input {
+            flex: 1;
+            padding: 5px 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+            color: #bfbfbf;
+        }
+
+        .date-range span {
+            color: #999;
+        }
+
+        /* 操作按钮区*/
+        .action-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            padding: 0 4px;
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            padding: 6px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            border: 1px solid transparent;
+            transition: all 0.2s;
+            outline: none;
+        }
+
+        .btn-primary {
+            background-color: #5C62D9;
+            color: #fff;
+            border-color: #5C62D9;
+        }
+
+        .btn-primary:hover {
+            background-color: #5C62D9;
+        }
+
+        .btn-default {
+            background-color: #fff;
+            border-color: #d9d9d9;
+            color: #333;
+        }
+
+        .btn-default:hover {
+            border-color: #5C62D9;
+            color: #5C62D9;
+        }
+
+        .btn-sm {
+            padding: 4px 12px;
+        }
+        .btn-new-feature { color: #52c41a !important; border-color: #52c41a !important; }
+        .btn-new-feature:hover { color: #73d13d !important; border-color: #73d13d !important; }
+        .action-link-new { color: #52c41a !important; }
+        .action-link-new:hover { text-decoration: underline; color: #73d13d !important; }
+        .new-badge {
+            display: inline-block;
+            background: #52c41a;
+            color: #fff;
+            font-size: 8px;
+            padding: 0 3px;
+            border-radius: 2px;
+            margin-left: 1px;
+            line-height: 13px;
+            vertical-align: super;
+            font-weight: 500;
+            pointer-events: none;
+        }
+
+        /* 表格区*/
+        .table-panel {
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .table-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            border-bottom: 1px solid #e8e8e8;
+            background: #fafafa;
+        }
+
+        .table-toolbar-left {
+            display: flex;
+            gap: 8px;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+        }
+
+        .table-wrapper::-webkit-scrollbar {
+            height: 10px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-track {
+            background: #f5f5f5;
+            border-radius: 5px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 5px;
+            border: 2px solid #f5f5f5;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .table-wrapper {
+            scrollbar-width: thin;
+            scrollbar-color: #c1c1c1 #f5f5f5;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            min-width: 1800px;
+        }
+
+        thead th {
+            background-color: #f0f0f8;
+            color: #666;
+            font-weight: 500;
+            text-align: left;
+            padding: 10px 8px;
+            border-bottom: 1px solid #e8e8e8;
+            white-space: nowrap;
+            position: relative;
+            user-select: none;
+            overflow: hidden;
+        }
+
+        .col-resizer {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 5px;
+            cursor: col-resize;
+            z-index: 10;
+        }
+
+        .col-resizer:hover,
+        .col-resizer.active {
+            background-color: #5C62D9;
+        }
+
+        tbody td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+            vertical-align: top;
+            line-height: 1.5;
+        }
+
+        tbody tr:hover {
+            background-color: #fafafa;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        .col-checkbox {
+            width: 40px;
+            text-align: center;
+        }
+
+        .col-index {
+            width: 50px;
+        }
+
+        .col-invoice {
+            width: 130px;
+        }
+
+        .col-docno {
+            width: 180px;
+        }
+
+        .col-applyno {
+            width: 180px;
+        }
+
+        .col-status {
+            width: 80px;
+        }
+
+        .col-scene {
+            width: 80px;
+        }
+
+        .col-method {
+            width: 100px;
+        }
+
+        .col-type {
+            width: 80px;
+        }
+
+        .col-client {
+            width: 80px;
+        }
+
+        .col-account {
+            width: 100px;
+        }
+
+        .col-service {
+            width: 150px;
+        }
+
+        .col-groupcode {
+            width: 120px;
+        }
+
+        .col-region {
+            width: 80px;
+        }
+
+        .col-level {
+            width: 60px;
+        }
+
+        .col-date {
+            width: 130px;
+        }
+
+        .col-currency {
+            width: 50px;
+        }
+
+        .col-amount {
+            width: 120px;
+        }
+
+        .col-verify-status {
+            width: 80px;
+        }
+
+        .col-action {
+            width: 240px;
+        }
+
+        .amount {
+            text-align: right;
+            font-family: "SF Mono", Monaco, monospace;
+        }
+
+        .amount .currency {
+            color: #999;
+            margin-left: 4px;
+        }
+
+        .status-tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+        }
+
+        .status-normal {
+            color: #52c41a;
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+        }
+
+        .status-pending {
+            color: #fa8c16;
+            background: #fff7e6;
+            border: 1px solid #ffd8bf;
+        }
+
+        .status-done {
+            color: #52c41a;
+            background: #f6ffed;
+            border: 1px solid #b7eb8f;
+        }
+
+        .status-void {
+            color: #999;
+            background: #f5f5f5;
+            border: 1px solid #d9d9d9;
+        }
+
+        .action-link {
+            color: #5C62D9;
+            cursor: pointer;
+            display: block;
+            line-height: 1.8;
+        }
+
+        .action-link:hover {
+            text-decoration: underline;
+        }
+
+        .action-more-wrap {
+            position: relative;
+            display: inline-block;
+        }
+
+        .action-more-dropdown {
+            display: none;
+            position: fixed;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 9999;
+            min-width: 120px;
+            padding: 4px 0;
+        }
+
+        .action-more-dropdown .action-link {
+            padding: 6px 12px;
+            white-space: nowrap;
+            line-height: 1.5;
+        }
+
+        .action-more-dropdown .action-link:hover {
+            background: #f5f5f5;
+            text-decoration: none;
+        }
+
+        .action-more-wrap.open .action-more-dropdown {
+            display: block;
+        }
+
+        /* 分页区*/
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 16px;
+            border-top: 1px solid #e8e8e8;
+            background: #fafafa;
+        }
+
+        .pagination-info {
+            color: #666;
+        }
+
+        .pagination {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .page-btn {
+            padding: 4px 10px;
+            border: 1px solid #d9d9d9;
+            background: #fff;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #333;
+            transition: all 0.2s;
+        }
+
+        .page-btn:hover {
+            border-color: #5C62D9;
+            color: #5C62D9;
+        }
+
+        .page-btn.active {
+            background: #5C62D9;
+            border-color: #5C62D9;
+            color: #fff;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-size {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: #666;
+        }
+
+        .page-size select {
+            padding: 4px 8px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+        }
+
+        /* 右上角客服图标*/
+        .customer-service {
+            position: fixed;
+            right: 20px;
+            bottom: 20px;
+            width: 40px;
+            height: 40px;
+            background: #fff;
+            border-radius: 50%;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 20px;
+            z-index: 1000;
+        }
+
+        /* 弹窗遮罩 */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.45);
+            z-index: 2000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        /* 弹窗 */
+        .modal {
+            background: #fff;
+            border-radius: 4px;
+            width: 900px;
+            max-width: 90vw;
+            max-height: 90vh;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 14px 20px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+
+        .modal-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .modal-close {
+            font-size: 18px;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            outline: none;
+            line-height: 1;
+        }
+
+        .modal-close:hover {
+            color: #666;
+        }
+
+        .modal-body {
+            padding: 16px 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .modal-section-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: #333;
+            margin: 0 0 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #e8e8e8;
+        }
+        .modal-table-wrapper {
+            overflow-x: auto;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+        }
+        .modal-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+        }
+        .modal-table th {
+            background: #f0f0f8;
+            color: #666;
+            font-weight: 500;
+            padding: 10px 12px;
+            text-align: left;
+            border-bottom: 1px solid #e8e8e8;
+            white-space: nowrap;
+            position: relative;
+            user-select: none;
+        }
+        .modal-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+            white-space: nowrap;
+        }
+        .modal-table tr:last-child td { border-bottom: none; }
+        .modal-table tr:hover { background: #fafafa; }
+
+        .modal-footer {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            padding: 14px 20px;
+            border-top: 1px solid #e8e8e8;
+            background: #fafafa;
+        }
+        .modal-form-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            gap: 12px;
+        }
+        .modal-form-label {
+            color: #333;
+            font-size: 12px;
+            min-width: 80px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        .modal-form-label.required::before {
+            content: '*';
+            color: #f5222d;
+            margin-right: 4px;
+        }
+        .modal-form-input {
+            flex: 1;
+            max-width: 300px;
+            padding: 6px 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+            background: #fff;
+        }
+        .modal-form-input:focus {
+            border-color: #5C62D9;
+        }
+        .modal-hint {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 12px;
+        }
+        .tip-wrap { position: relative; display: inline-flex; }
+        .tip-icon { display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: #bfbfbf; color: #fff; font-size: 10px; font-weight: bold; cursor: pointer; font-style: normal; line-height: 1; flex-shrink: 0; }
+        .tip-icon:hover { background: #5C62D9; }
+        .tip-text { display: none; position: fixed; background: #555; color: #fff; padding: 8px 12px; border-radius: 4px; white-space: normal; max-width: 280px; font-size: 12px; font-weight: normal; z-index: 99999; box-shadow: 0 2px 8px rgba(0,0,0,0.15); line-height: 1.5; }
+        .tip-text::after { content: ''; position: absolute; top: 100%; left: 50%; transform: translateX(-50%); border: 5px solid transparent; border-top-color: #555; }
+        .tip-text.show { display: block; }
+
+        .modal-bill-table { min-width: auto; }
+        .modal-bill-table th { font-size: 11px; padding: 8px 6px; background: #f0f0f8; }
+        .modal-bill-table td { padding: 6px; font-size: 12px; }
+        .multi-select-wrap { position: relative; display: inline-block; min-width: 180px; }
+        .multi-select-trigger { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 12px; background: #fff; min-height: 30px; }
+        .multi-select-trigger:hover { border-color: #5C62D9; }
+        .multi-select-placeholder { color: #bfbfbf; }
+        .multi-select-arrow { font-size: 10px; color: #999; margin-left: 8px; }
+        .multi-select-dropdown { display: none; position: absolute; top: 100%; left: 0; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; min-width: 100%; padding: 6px 0; }
+        .multi-select-dropdown.open { display: block; }
+        .multi-select-dropdown label { display: flex; align-items: center; padding: 5px 12px; cursor: pointer; font-size: 12px; color: #333; white-space: nowrap; }
+        .multi-select-dropdown label:hover { background: #f5f5ff; }
+        .multi-select-dropdown label.selected { background: #f0f0fc; color: #5C62D9; }
+        .multi-select-dropdown label input[type="checkbox"] { display: none; }
+.scene-filter-wrap { position: relative; display: inline-block; min-width: 180px; flex: 1; }
+.scene-filter-trigger { display: flex; align-items: center; justify-content: space-between; padding: 5px 10px; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 12px; background: #fff; min-height: 30px; }
+.scene-filter-trigger:hover { border-color: #5C62D9; }
+.scene-filter-text { color: #bfbfbf; }
+.scene-filter-arrow { font-size: 10px; color: #999; margin-left: 8px; }
+.scene-filter-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; padding: 4px 0; }
+.scene-filter-dropdown.open { display: block; }
+.scene-filter-option { padding: 6px 12px; cursor: pointer; font-size: 12px; color: #333; }
+.scene-filter-option:hover { background: #f5f5ff; }
+.scene-filter-option.selected { background: #f0f0fc; color: #5C62D9; }
+    </style>
+</head>
+<body>
+    <!-- 侧边栏-->
+    <aside class="sidebar" id="sidebar">
+            <nav class="sidebar-nav">
+                
+            <a href="product-mapping.html" class="nav-item">
+            </a>
+            <a href="invoice-flow-config.html" class="nav-item">
+                <span class="nav-text">开票流程配置</span>
+            </a>
+                <a href="index.html" class="nav-item">
+                    <span class="nav-text">对账管理</span>
+                </a>
+                <a href="invoice.html" class="nav-item">
+                    <span class="nav-text">发票管理</span>
+                </a>
+                <a href="verification.html" class="nav-item">
+                    <span class="nav-text">发票核销(新)</span>
+                </a>
+                <a href="verification-trace.html" class="nav-item active">
+                    <span class="nav-text">发票台账</span>
+                </a>
+            </nav>
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+    </aside>
+
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn" title="收起/展开侧边栏">
+        <span class="toggle-icon">&#9664;</span>
+    </div>
+
+    <main class="main-content" id="mainContent">
+    <div class="page-container">
+        <!-- 筛选面板-->
+        <div class="filter-panel">
+            <!-- 标签行：发票状态-->
+            <div class="filter-row">
+                <span class="filter-label">发票状态：</span>
+                <div class="filter-tags">
+                    <span class="tag active">全部</span>
+                    <span class="tag">正常</span>
+                    <span class="tag">红冲</span>
+                    <span class="tag">作废</span>
+                </div>
+            </div>
+            <!-- 标签行：核销状态-->
+            <div class="filter-row">
+                <span class="filter-label">核销状态：</span>
+                <div class="filter-tags">
+                    <span class="tag active">全部</span>
+                    <span class="tag">待核销</span>
+                    <span class="tag">部分核销</span>
+                    <span class="tag">无需核销</span>
+                    <span class="tag">已核销</span>
+                </div>
+            </div>
+            <!-- 表单区-->
+            <div class="form-grid" style="margin-top: 12px; margin-bottom: 0;">
+                <div class="form-item">
+                    <span class="label">发票号：</span>
+                    <input type="text" placeholder="请输入发票号">
+                </div>
+                <div class="form-item">
+                    <span class="label">核销单号</span>
+                    <input type="text" placeholder="请输入核销单号">
+                </div>
+                <div class="form-item">
+                    <span class="label">账单号：</span>
+                    <input type="text" placeholder="请输入账单号">
+                </div>
+                <div class="form-item">
+                    <span class="label">开票场景：</span>
+                    <div class="scene-filter-wrap" id="sceneFilter">
+    <div class="scene-filter-trigger" onclick="toggleSceneFilter()">
+        <span class="scene-filter-text">请选择开票场景</span>
+        <span class="scene-filter-arrow">▼</span>
+    </div>
+    <div class="scene-filter-dropdown">
+        <div class="scene-filter-option" data-value="账单开票" onclick="toggleSceneOption(this)">账单开票</div>
+        <div class="scene-filter-option" data-value="国内段跨期开票" onclick="toggleSceneOption(this)">国内段跨期开票</div>
+        <div class="scene-filter-option" data-value="非账单开票" onclick="toggleSceneOption(this)">非账单开票</div>
+        <div class="scene-filter-option" data-value="预充值开票" onclick="toggleSceneOption(this)">预充值开票</div>
+        <div class="scene-filter-option" data-value="汇率差补开票" onclick="toggleSceneOption(this)">汇率差补开票</div>
+        <div class="scene-filter-option" data-value="跨期账单开票" onclick="toggleSceneOption(this)">跨期账单开票</div>
+    </div>
+</div>
+                <div class="form-item">
+                    <span class="label">开票方式：</span>
+                    <select>
+                        <option>请选择开票方式</option>
+                        <option>FPS标准手信<</option>
+                        <option>FPS非标准手信<</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <span class="label">发票类型</span>
+                    <select>
+                        <option>请选择发票类型<</option>
+                        <option>形式发票<</option>
+                        <option>商业发票<</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <span class="label">编码：</span>
+                    <div style="display:flex;gap:4px;flex:1;">
+                        <select style="width:90px;flex-shrink:0;"><option>客户代码</option><option>账户编号</option></select>
+                        <input type="text" placeholder="请输入编码" style="flex:1;">
+                    </div>
+                </div>
+                <div class="form-item">
+                    <span class="label">服务主体</span>
+                    <select>
+                        <option>请选择服务主体<</option>
+                    </select>
+                </div>
+                <div class="form-item">
+                    <span class="label">发票日期：</span>
+                    <div class="date-range">
+                        <input type="date">
+                        <span>~</span>
+                        <input type="date">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 操作按钮 -->
+        <div class="action-bar">
+            <div class="btn-group">
+                <button class="btn btn-primary">查询</button>
+                <button class="btn btn-default">重置</button>
+            </div>
+        </div>
+
+        <!-- 表格区-->
+        <div class="table-panel">
+            <div class="table-toolbar">
+                <div class="table-toolbar-left">
+                    <button class="btn btn-sm btn-default btn-new-feature">导出核销轨迹<span class="new-badge">new</span></button>
+                    <button class="btn btn-sm btn-default btn-new-feature" id="batchAutoVerifyBtn">是否参与自动核销<span class="new-badge">new</span></button>
+                    <button class="btn btn-sm btn-default btn-new-feature">导出列表<span class="new-badge">new</span></button>
+                </div>
+            </div>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="col-checkbox"><input type="checkbox"><div class="col-resizer"></div></th>
+                            <th class="col-index">序号<div class="col-resizer"></div></th>
+                            <th class="col-invoice">发票号<div class="col-resizer"></div></th>
+                            <th class="col-docno">单据归集号<div class="col-resizer"></div></th>
+                            <th class="col-applyno">发票申请号<div class="col-resizer"></div></th>
+                            <th class="col-status">发票状态<div class="col-resizer"></div></th>
+                            <th class="col-scene">开票场景<div class="col-resizer"></div></th>
+                            <th class="col-auto-verify">是否参与自动核销<div class="col-resizer"></div></th>
+                            <th class="col-method">开票方式<div class="col-resizer"></div></th>
+                            <th class="col-type">发票类型<div class="col-resizer"></div></th>
+                            <th class="col-client">客户代码<div class="col-resizer"></div></th>
+                            <th class="col-account">账户编号<div class="col-resizer"></div></th>
+                            <th class="col-service">服务主体<div class="col-resizer"></div></th>
+                            <th class="col-groupcode">集团统一编码<div class="col-resizer"></div></th>
+                            <th class="col-region">销售区域<div class="col-resizer"></div></th>
+                            <th class="col-level">客户层级<div class="col-resizer"></div></th>
+                            <th class="col-date">发票日期<div class="col-resizer"></div></th>
+                            <th class="col-currency">发票币种<div class="col-resizer"></div></th>
+                            <th class="col-amount">发票金额<div class="col-resizer"></div></th>
+                            <th class="col-verify-status">核销状态<div class="col-resizer"></div></th>
+                            <th class="col-amount">已核销金额<div class="col-resizer"></div></th>
+                            <th class="col-amount th-new-feature">核销中金额<span class="new-badge">new</span><div class="col-resizer"></div></th>
+                            <th class="col-amount">未核销金额<div class="col-resizer"></div></th>
+                            <th class="col-amount">剩余可核销金额<div class="col-resizer"></div></th>
+                            <th class="col-action">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">1</td>
+                            <td class="col-invoice">testre0710</td>
+                            <td class="col-docno">2075462523249199596</td>
+                            <td class="col-applyno">FPC134520260501015000001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">账单开票</td>
+                            <td class="col-auto-verify">参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">G1345</td>
+                            <td class="col-account">ACG134559</td>
+                            <td class="col-service">日钢株式会社</td>
+                            <td class="col-groupcode">PC12610606</td>
+                            <td class="col-region">--</td>
+                            <td class="col-level">1</td>
+                            <td class="col-date">2026-07-10 10:20:44</td>
+                            <td class="col-currency">JPY</td>
+                            <td class="col-amount amount">-1,826,923.69</td>
+                            <td class="col-verify-status"><span class="status-tag status-done">已核销</span></td>
+                            <td class="col-amount amount">1,826,923.69</td>
+                            <td class="col-amount amount">500,000.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">2</td>
+                            <td class="col-invoice">TESTINV0710</td>
+                            <td class="col-docno">2075462482313856346</td>
+                            <td class="col-applyno">FPC134520260501015000001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">非账单开票</td>
+                            <td class="col-auto-verify">不参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">EL122</td>
+                            <td class="col-account">ACEL12201</td>
+                            <td class="col-service">US ELOGISTICS SERVI CE CORP</td>
+                            <td class="col-groupcode">PC31689186</td>
+                            <td class="col-region">美洲销售组</td>
+                            <td class="col-level">3</td>
+                            <td class="col-date">2026-07-10 10:20:44</td>
+                            <td class="col-currency">USD</td>
+                            <td class="col-amount amount">10.00</td>
+                            <td class="col-verify-status"><span class="status-tag status-pending">无需核销</span></td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">10.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">3</td>
+                            <td class="col-invoice">202605150001</td>
+                            <td class="col-docno">20665008887426288810</td>
+                            <td class="col-applyno">FPC13452026011518000001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">账单开票</td>
+                            <td class="col-auto-verify">参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">G1345</td>
+                            <td class="col-account">ACG134552</td>
+                            <td class="col-service">GOODCANG LOGISTIC S CANADA CORP</td>
+                            <td class="col-groupcode">PC02305303</td>
+                            <td class="col-region">--</td>
+                            <td class="col-level">3</td>
+                            <td class="col-date">2026-06-15 00:00:00</td>
+                            <td class="col-currency">GBP</td>
+                            <td class="col-amount amount">1,777,236.38</td>
+                            <td class="col-verify-status"><span class="status-tag status-done">已核销</span></td>
+                            <td class="col-amount amount">1,777,236.38</td>
+                            <td class="col-amount amount">200,000.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">4</td>
+                            <td class="col-invoice">202605150002</td>
+                            <td class="col-docno">20665008887426288808</td>
+                            <td class="col-applyno">FPC13452026040101530001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">账单开票</td>
+                            <td class="col-auto-verify">无需参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">G1345</td>
+                            <td class="col-account">ACG134552</td>
+                            <td class="col-service">GOODCANG LOGISTIC S CANADA CORP</td>
+                            <td class="col-groupcode">PC02305303</td>
+                            <td class="col-region">--</td>
+                            <td class="col-level">3</td>
+                            <td class="col-date">2026-06-15 00:00:00</td>
+                            <td class="col-currency">JPY</td>
+                            <td class="col-amount amount">104.00</td>
+                            <td class="col-verify-status"><span class="status-tag status-done">已核销</span></td>
+                            <td class="col-amount amount">104.00</td>
+                            <td class="col-amount amount">50.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">5</td>
+                            <td class="col-invoice">202605150005</td>
+                            <td class="col-docno">20665008887426288804</td>
+                            <td class="col-applyno">FPC13452026040101530001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">账单开票</td>
+                            <td class="col-auto-verify">参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">EL2536</td>
+                            <td class="col-account">ACEL253601</td>
+                            <td class="col-service">深圳可送达科技有限公司</td>
+                            <td class="col-groupcode">PC01168163</td>
+                            <td class="col-region">--</td>
+                            <td class="col-level">3</td>
+                            <td class="col-date">2026-06-15 00:00:00</td>
+                            <td class="col-currency">USD</td>
+                            <td class="col-amount amount">166,005.65</td>
+                            <td class="col-verify-status"><span class="status-tag status-done">已核销</span></td>
+                            <td class="col-amount amount">166,005.65</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">6</td>
+                            <td class="col-invoice">202605150004</td>
+                            <td class="col-docno">20665008887426288802</td>
+                            <td class="col-applyno">FPC13452026040101530001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">账单开票</td>
+                            <td class="col-auto-verify">不参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">EL2536</td>
+                            <td class="col-account">ACEL253601</td>
+                            <td class="col-service">深圳可送达科技有限公司</td>
+                            <td class="col-groupcode">PC01168163</td>
+                            <td class="col-region">--</td>
+                            <td class="col-level">3</td>
+                            <td class="col-date">2026-06-15 00:00:00</td>
+                            <td class="col-currency">KRW</td>
+                            <td class="col-amount amount">720.00</td>
+                            <td class="col-verify-status"><span class="status-tag status-done">已核销</span></td>
+                            <td class="col-amount amount">720.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">7</td>
+                            <td class="col-invoice">202605050001</td>
+                            <td class="col-docno">20665008887426288802</td>
+                            <td class="col-applyno">FPC13452026040101530001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">账单开票</td>
+                            <td class="col-auto-verify">无需参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">EL122</td>
+                            <td class="col-account">ACEL12248</td>
+                            <td class="col-service">ETARGET LIMITED</td>
+                            <td class="col-groupcode">PC54899565</td>
+                            <td class="col-region">美洲销售组</td>
+                            <td class="col-level">3</td>
+                            <td class="col-date">2026-06-04 18:09:33</td>
+                            <td class="col-currency">USD</td>
+                            <td class="col-amount amount">100.00</td>
+                            <td class="col-verify-status"><span class="status-tag status-done">已核销</span></td>
+                            <td class="col-amount amount">100.00</td>
+                            <td class="col-amount amount">30.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">8</td>
+                            <td class="col-invoice">202605050002</td>
+                            <td class="col-docno">20665008887426288802</td>
+                            <td class="col-applyno">FPC13452026040101530001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">账单开票</td>
+                            <td class="col-auto-verify">参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">EL122</td>
+                            <td class="col-account">ACEL12248</td>
+                            <td class="col-service">ETARGET LIMITED</td>
+                            <td class="col-groupcode">PC54899565</td>
+                            <td class="col-region">美洲销售组</td>
+                            <td class="col-level">3</td>
+                            <td class="col-date">2026-06-15 00:00:00</td>
+                            <td class="col-currency">USD</td>
+                            <td class="col-amount amount">-20.00</td>
+                            <td class="col-verify-status"><span class="status-tag status-done">已核销</span></td>
+                            <td class="col-amount amount">20.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="col-checkbox"><input type="checkbox"></td>
+                            <td class="col-index">9</td>
+                            <td class="col-invoice">202000111212112</td>
+                            <td class="col-docno">2062476165323061969</td>
+                            <td class="col-applyno">FPC13452026040101530001</td>
+                            <td class="col-status"><span class="status-tag status-normal">正常</span></td>
+                            <td class="col-scene">账单开票</td>
+                            <td class="col-auto-verify">不参与</td>
+                            <td class="col-method">FPS非标准手信</td>
+                            <td class="col-type">形式发票</td>
+                            <td class="col-client">EL122</td>
+                            <td class="col-account">ACEL12248</td>
+                            <td class="col-service">ETARGET LIMITED</td>
+                            <td class="col-groupcode">PC54899565</td>
+                            <td class="col-region">美洲销售组</td>
+                            <td class="col-level">3</td>
+                            <td class="col-date">--</td>
+                            <td class="col-currency">USD</td>
+                            <td class="col-amount amount">--</td>
+                            <td class="col-verify-status"><span class="status-tag status-pending">无需核销</span></td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-amount amount">0.00</td>
+                            <td class="col-action">
+                                <span class="action-link">是否参与自动核销</span>
+                                <div class="action-more-wrap">
+                                    <span class="action-link action-more-toggle">更多</span>
+                                    <div class="action-more-dropdown">
+                                        <span class="action-link" onclick="openLogModal()">发票日志</span>
+                                        <span class="action-link action-link-new" onclick="openBillDetailModal()">查看账单<span class="new-badge">new</span></span>
+                                        <span class="action-link">发票文件预览</span>
+                                        <span class="action-link">下载发票</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="pagination-bar">
+                <div class="pagination-info">
+                    共 9 条记录                </div>
+                <div class="pagination">
+                    <button class="page-btn">上一页</button>
+                    <button class="page-btn active">1</button>
+                    <button class="page-btn">2</button>
+                    <button class="page-btn">3</button>
+                    <button class="page-btn">4</button>
+                    <button class="page-btn">5</button>
+                    <button class="page-btn">6</button>
+                    <button class="page-btn">7</button>
+                    <button class="page-btn">8</button>
+                    <button class="page-btn">下一页</button>
+                    <button class="page-btn">前往</button>
+                    <span>1</span>
+                    <span></span>
+                </div>
+                <div class="page-size">
+                    <select>
+                        <option>20条/页<</option>
+                        <option>50条/页<</option>
+                        <option>100条/页<</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+    </main>
+
+    <!-- 是否参与自动核销弹窗 -->
+    <div class="modal-overlay" id="autoVerifyModal">
+        <div class="modal" style="width: 520px;">
+            <div class="modal-header">
+                <span class="modal-title">确认是否参与自动核销</span>
+                <button class="modal-close" id="autoVerifyClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-form-row">
+                    <span class="modal-form-label required">是否参与自动核销</span>
+                    <span class="tip-wrap" style="margin-left: -8px;">
+                        <i class="tip-icon">!</i>
+                        <span class="tip-text">选择标记不参与，后续系统自动核销时将忽略当前发票不参与自动核销</span>
+                    </span>
+                    <select class="modal-form-input" id="autoVerifySelect" style="flex: 1;">
+                        <option value="">请选择</option>
+                        <option value="参与">参与</option>
+                        <option value="不参与">不参与</option>
+                    </select>
+                </div>
+                <div class="modal-hint" style="margin-bottom: 0;">
+                    点击确定则系统将更新当前发票的自动核销参与状态，请确认
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" id="autoVerifyConfirm">确定</button>
+                <button class="btn btn-default" id="autoVerifyCancel">取消</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 查看账单弹窗 -->
+    <div class="modal-overlay" id="billDetailModal">
+        <div class="modal" style="width: 900px;">
+            <div class="modal-header">
+                <span class="modal-title">查看账单</span>
+                <button class="modal-close" id="billDetailClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="modal-section-title">发票信息</div>
+                <div class="modal-table-wrapper" style="margin-bottom: 20px;">
+                    <table class="modal-table" style="table-layout: auto; min-width: unset;">
+                        <thead>
+                            <tr>
+                                <th>发票号<div class="col-resizer"></div></th>
+                                <th>发票日期<div class="col-resizer"></div></th>
+                                <th>发票币种<div class="col-resizer"></div></th>
+                                <th>发票金额<div class="col-resizer"></div></th>
+                                <th>已核销金额<div class="col-resizer"></div></th>
+                                <th>核销中金额<div class="col-resizer"></div></th>
+                                <th>可核销金额<div class="col-resizer"></div></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>INV20260710001</td>
+                                <td>2026-07-10</td>
+                                <td>USD</td>
+                                <td>10,000.00</td>
+                                <td>5,000.00</td>
+                                <td>1,000.00</td>
+                                <td>4,000.00</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="modal-section-title">账单信息</div>
+                <div class="modal-table-wrapper" style="max-height: 280px; overflow-y: auto;">
+                    <table class="modal-table" style="table-layout: auto; min-width: unset;">
+                        <thead>
+                            <tr>
+                                <th>账单号<div class="col-resizer"></div></th>
+                                <th>账单周期<div class="col-resizer"></div></th>
+                                <th>账单金额<div class="col-resizer"></div></th>
+                                <th>账单币种<div class="col-resizer"></div></th>
+                                <th>发票汇率<div class="col-resizer"></div></th>
+                                <th>账单核销金额<div class="col-resizer"></div></th>
+                                <th>核销状态<div class="col-resizer"></div></th>
+                                <th>操作时间<div class="col-resizer"></div></th>
+                                <th>核销单号<div class="col-resizer"></div></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>B20260710G1529002</td>
+                                <td>2026-07-01 至 2026-07-31</td>
+                                <td>10,000.00</td>
+                                <td>USD</td>
+                                <td>7.2500</td>
+                                <td>72,500.00</td>
+                                <td>已核销</td>
+                                <td>2026-07-22 14:30:00</td>
+                                <td>FPHXG1529202607220001</td>
+                            </tr>
+                            <tr>
+                                <td>B20260710G1529003</td>
+                                <td>2026-06-01 至 2026-06-30</td>
+                                <td>25,800.00</td>
+                                <td>EUR</td>
+                                <td>8.1234</td>
+                                <td>209,583.72</td>
+                                <td>已核销</td>
+                                <td>2026-07-21 10:15:00</td>
+                                <td>FPHXG1529202607220002</td>
+                            </tr>
+                            <tr>
+                                <td>B20260710G1529004</td>
+                                <td>2026-05-01 至 2026-05-31</td>
+                                <td>3,500.00</td>
+                                <td>GBP</td>
+                                <td>9.5678</td>
+                                <td>33,487.30</td>
+                                <td>核销中</td>
+                                <td>2026-07-22 09:00:00</td>
+                                <td>FPHXG1529202607220003</td>
+                            </tr>
+                            <tr>
+                                <td>B20260710G1529005</td>
+                                <td>2026-04-01 至 2026-04-30</td>
+                                <td>15,200.00</td>
+                                <td>JPY</td>
+                                <td>0.0485</td>
+                                <td>313,402.06</td>
+                                <td>已核销</td>
+                                <td>2026-07-20 16:45:00</td>
+                                <td>FPHXG1529202607220004</td>
+                            </tr>
+                            <tr>
+                                <td>B20260710G1529006</td>
+                                <td>2026-03-01 至 2026-03-31</td>
+                                <td>8,900.00</td>
+                                <td>USD</td>
+                                <td>7.2500</td>
+                                <td>64,525.00</td>
+                                <td>废弃</td>
+                                <td>2026-07-19 11:20:00</td>
+                                <td>FPHXG1529202607220005</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-default" id="billDetailCancel">关闭</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="customer-service">?</div>
+
+    <script>
+        // 标签页切换
+        document.querySelectorAll('.filter-tags').forEach(container => {
+            container.addEventListener('click', e => {
+                if (e.target.classList.contains('tag')) {
+                    container.querySelectorAll('.tag').forEach(t => t.classList.remove('active'));
+                    e.target.classList.add('active');
+                }
+            });
+        });
+
+        // 全选/反选
+        const headerCheckbox = document.querySelector('thead .col-checkbox input');
+        if (headerCheckbox) {
+            headerCheckbox.addEventListener('change', () => {
+                document.querySelectorAll('tbody .col-checkbox input').forEach(cb => {
+                    cb.checked = headerCheckbox.checked;
+                });
+            });
+        }
+
+        // 列宽拖拽
+        const resizers = document.querySelectorAll('.col-resizer');
+        let activeResizer = null;
+        let startX = 0;
+        let startWidth = 0;
+        let nextStartWidth = 0;
+        let thElem = null;
+        let nextThElem = null;
+
+        resizers.forEach(resizer => {
+            resizer.addEventListener('mousedown', e => {
+                e.preventDefault();
+                e.stopPropagation();
+                activeResizer = resizer;
+                resizer.classList.add('active');
+                thElem = resizer.parentElement;
+                nextThElem = thElem.nextElementSibling;
+                startX = e.pageX;
+                startWidth = thElem.offsetWidth;
+                if (nextThElem) {
+                    nextStartWidth = nextThElem.offsetWidth;
+                }
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+        });
+
+        document.addEventListener('mousemove', e => {
+            if (!activeResizer) return;
+            const dx = e.pageX - startX;
+            const newWidth = startWidth + dx;
+            const minWidth = 40;
+            if (newWidth > minWidth) {
+                thElem.style.width = newWidth + 'px';
+                thElem.style.minWidth = newWidth + 'px';
+                if (nextThElem && nextStartWidth - dx > minWidth) {
+                    nextThElem.style.width = (nextStartWidth - dx) + 'px';
+                    nextThElem.style.minWidth = (nextStartWidth - dx) + 'px';
+                }
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (activeResizer) {
+                activeResizer.classList.remove('active');
+                activeResizer = null;
+                thElem = null;
+                nextThElem = null;
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // 侧边栏折叠/展开
+        const sidebar = document.getElementById("sidebar");
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        if (sidebarToggleBtn) {
+            sidebarToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('collapsed');
+                sidebarToggleBtn.classList.toggle('collapsed');
+            });
+        }
+
+        // 侧边栏宽度拖拽
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        let isSidebarResizing = false;
+        let sidebarStartX = 0;
+        let sidebarStartWidth = 0;
+
+        if (sidebarResizer) {
+            sidebarResizer.addEventListener('mousedown', e => {
+                e.preventDefault();
+                isSidebarResizing = true;
+                sidebarResizer.classList.add('active');
+                sidebarStartX = e.pageX;
+                sidebarStartWidth = sidebar.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+        }
+
+        document.addEventListener('mousemove', e => {
+            if (!isSidebarResizing) return;
+            const dx = e.pageX - sidebarStartX;
+            const newWidth = sidebarStartWidth + dx;
+            const minWidth = 160;
+            const maxWidth = 400;
+            if (newWidth >= minWidth && newWidth <= maxWidth) {
+                sidebar.style.width = newWidth + 'px';
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (isSidebarResizing) {
+                isSidebarResizing = false;
+                if (sidebarResizer) sidebarResizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+        // 操作日志弹窗
+        function openLogModal() {
+            const logModal = document.getElementById('logModal');
+            logModal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeLogModal() {
+            const logModal = document.getElementById('logModal');
+            logModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        const logModalEl = document.getElementById('logModal');
+        if (logModalEl) {
+            logModalEl.addEventListener('click', e => {
+                if (e.target === logModalEl) closeLogModal();
+            });
+        }
+
+        // 弹窗置顶管理
+        let topZIndex = 2000;
+        function bringToFront(modal) {
+            topZIndex++;
+            modal.style.zIndex = topZIndex;
+        }
+
+        // 是否参与自动核销弹窗
+        var autoVerifyModal = document.getElementById('autoVerifyModal');
+        var autoVerifyClose = document.getElementById('autoVerifyClose');
+        var autoVerifyCancel = document.getElementById('autoVerifyCancel');
+        var autoVerifyConfirm = document.getElementById('autoVerifyConfirm');
+        var batchAutoVerifyBtn = document.getElementById('batchAutoVerifyBtn');
+
+        function openAutoVerifyModal() {
+            var sel = document.getElementById('autoVerifySelect');
+            if (sel) sel.value = '';
+            autoVerifyModal.classList.add('active');
+            bringToFront(autoVerifyModal);
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeAutoVerifyModal() {
+            autoVerifyModal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+
+        if (autoVerifyClose) autoVerifyClose.addEventListener('click', closeAutoVerifyModal);
+        if (autoVerifyCancel) autoVerifyCancel.addEventListener('click', closeAutoVerifyModal);
+        if (autoVerifyConfirm) {
+            autoVerifyConfirm.addEventListener('click', function() {
+                var sel = document.getElementById('autoVerifySelect');
+                if (!sel || !sel.value) {
+                    alert('请选择是否参与自动核销');
+                    return;
+                }
+                alert('已提交！\n是否参与自动核销：' + sel.value);
+                closeAutoVerifyModal();
+            });
+        }
+        if (autoVerifyModal) {
+            autoVerifyModal.addEventListener('click', function(e) {
+                if (e.target === autoVerifyModal) closeAutoVerifyModal();
+            });
+        }
+        if (batchAutoVerifyBtn) {
+            batchAutoVerifyBtn.addEventListener('click', openAutoVerifyModal);
+        }
+
+        // 绑定表格中"是否参与自动核销"操作列链接
+        document.querySelectorAll('tbody .action-link').forEach(function(link) {
+            if (link.textContent.trim() === '是否参与自动核销') {
+                link.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    openAutoVerifyModal();
+                });
+            }
+        });
+
+        // 查看账单弹窗
+        function openBillDetailModal() {
+            var modal = document.getElementById('billDetailModal');
+            modal.classList.add('active');
+            bringToFront(modal);
+            document.body.style.overflow = 'hidden';
+        }
+        function closeBillDetailModal() {
+            var modal = document.getElementById('billDetailModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+        }
+        var billDetailModal = document.getElementById('billDetailModal');
+        var billDetailClose = document.getElementById('billDetailClose');
+        var billDetailCancel = document.getElementById('billDetailCancel');
+        if (billDetailClose) billDetailClose.addEventListener('click', closeBillDetailModal);
+        if (billDetailCancel) billDetailCancel.addEventListener('click', closeBillDetailModal);
+        if (billDetailModal) {
+            billDetailModal.addEventListener('click', function(e) {
+                if (e.target === billDetailModal) closeBillDetailModal();
+            });
+        }
+
+        // 操作列"更多"下拉菜单
+        document.querySelectorAll('.action-more-toggle').forEach(toggle => {
+            toggle.addEventListener('click', e => {
+                e.stopPropagation();
+                const wrap = toggle.closest('.action-more-wrap');
+                const dropdown = wrap.querySelector('.action-more-dropdown');
+                // 关闭其他已打开的下拉
+                document.querySelectorAll('.action-more-wrap.open').forEach(openWrap => {
+                    if (openWrap !== wrap) openWrap.classList.remove('open');
+                });
+                const isOpen = wrap.classList.toggle('open');
+                if (isOpen && dropdown) {
+                    const rect = toggle.getBoundingClientRect();
+                    dropdown.style.top = (rect.bottom + 2) + 'px';
+                    dropdown.style.left = rect.left + 'px';
+                }
+            });
+        });
+
+        // 点击页面其他地方关闭下拉
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.action-more-wrap.open').forEach(wrap => {
+                wrap.classList.remove('open');
+            });
+        });
+        function toggleMultiSelect(wrapId) { var d = document.getElementById(wrapId).querySelector(".multi-select-dropdown"); d.classList.toggle("open"); }
+        function updateMultiSelect(wrapId) {
+            var w = document.getElementById(wrapId);
+            var cbs = w.querySelectorAll("input[type=checkbox]:checked");
+            var ph = w.querySelector(".multi-select-placeholder");
+            var vs = Array.from(cbs).map(function(cb) { return cb.value; });
+            ph.textContent = vs.length > 0 ? vs.join("、") : "请选择";
+            ph.style.color = vs.length > 0 ? "#333" : "#bfbfbf";
+            w.querySelectorAll("label").forEach(function(l) {
+                var cb = l.querySelector("input[type=checkbox]");
+                if (cb && cb.checked) l.classList.add("selected"); else l.classList.remove("selected");
+            });
+        }
+        document.addEventListener("click", function(e) { if (!e.target.closest(".multi-select-wrap")) { document.querySelectorAll(".multi-select-dropdown.open").forEach(function(dd) { dd.classList.remove("open"); }); } });
+        function toggleSceneFilter() {
+            var dd = document.getElementById("sceneFilter").querySelector(".scene-filter-dropdown");
+            dd.classList.toggle("open");
+        }
+        function toggleSceneOption(el) {
+            el.classList.toggle("selected");
+            updateSceneFilterText();
+        }
+        function updateSceneFilterText() {
+            var sel = document.querySelectorAll("#sceneFilter .scene-filter-option.selected");
+            var txt = document.querySelector("#sceneFilter .scene-filter-text");
+            var vs = Array.from(sel).map(function(o) { return o.getAttribute("data-value"); });
+            txt.textContent = vs.length > 0 ? vs.join("、") : "请选择开票场景";
+            txt.style.color = vs.length > 0 ? "#333" : "#bfbfbf";
+        }
+        document.addEventListener("click", function(e) {
+            var wrap = document.getElementById("sceneFilter");
+            if (wrap && !wrap.contains(e.target)) {
+                wrap.querySelector(".scene-filter-dropdown").classList.remove("open");
+            }
+        });
+
+        // 提示图标 tooltip 定位
+        document.querySelectorAll('.tip-icon').forEach(function(icon) {
+            icon.addEventListener('mouseenter', function() {
+                var tip = this.nextElementSibling;
+                var rect = this.getBoundingClientRect();
+                tip.style.left = (rect.left + rect.width / 2) + 'px';
+                tip.style.top = (rect.top - 8) + 'px';
+                tip.style.transform = 'translate(-50%, -100%)';
+                tip.classList.add('show');
+            });
+            icon.addEventListener('mouseleave', function() {
+                this.nextElementSibling.classList.remove('show');
+            });
+        });
+    </script>
+</body>
+</html>

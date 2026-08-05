@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开票流程配置</title>
+    <link rel="prefetch" href="index.html">
+    <link rel="prefetch" href="invoice.html">
+    <link rel="prefetch" href="verification.html">
+    <link rel="prefetch" href="verification-trace.html">
+    <link rel="prefetch" href="product-mapping.html">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-size: 12px;
+            color: #333;
+            background-color: #f5f5f5;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        /* 侧边栏 */
+        .sidebar {
+            width: 230px;
+            background: #fff;
+            border-right: 1px solid #e8e8e8;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: width 0s;
+        }
+
+        .sidebar-toggle-btn {
+            position: fixed;
+            left: 230px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 56px;
+            background: #fff;
+            border: 1px solid #e8e8e8;
+            border-left: none;
+            border-radius: 0 4px 4px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            z-index: 1000;
+            transition: left 0.2s;
+        }
+        .sidebar-toggle-btn:hover { background: #fafafa; }
+        .sidebar.collapsed + .main-content .sidebar-toggle-btn,
+        .sidebar.collapsed ~ .sidebar-toggle-btn { left: 0; }
+        .sidebar.collapsed { width: 0 !important; min-width: 0 !important; padding: 0 !important; overflow: hidden; border-right: none; }
+        .sidebar-toggle-btn .toggle-icon { font-size: 12px; color: #999; }
+        .sidebar-toggle-btn.collapsed .toggle-icon { transform: rotate(180deg); }
+        .sidebar-nav { flex: 1; padding: 12px 0; }
+        .nav-item {
+            display: flex; align-items: center; padding: 10px 20px; color: #333;
+            text-decoration: none; font-size: 13px; cursor: pointer;
+        }
+        .nav-item:hover { background: #f5f5f5; }
+        .nav-item.active { background: #f0f0fc; color: #5C62D9; border-right: 3px solid #5C62D9; font-weight: 500; }
+        .sidebar-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 100; transition: background 0.2s; }
+        .sidebar-resizer:hover, .sidebar-resizer.active { background: #5C62D9; }
+
+        /* 主内容区 */
+        .main-content { flex: 1; overflow-x: hidden; min-width: 0; }
+        .page-container { background: #fff; min-height: calc(100vh); display: flex; flex-direction: column; }
+
+        /* 页面标题 */
+        .page-header {
+            padding: 14px 20px;
+            background: #fff;
+            border-bottom: 1px solid #e8e8e8;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        .page-header::before {
+            content: ''; display: inline-block; width: 3px; height: 14px;
+            background: #5C62D9; margin-right: 8px; border-radius: 2px;
+        }
+
+        /* Tab 栏 */
+        .tab-bar {
+            display: flex;
+            background: #fff;
+            border-bottom: 1px solid #e8e8e8;
+            padding: 0 20px;
+        }
+        .tab-item {
+            padding: 12px 20px;
+            cursor: pointer;
+            color: #666;
+            font-size: 13px;
+            border-bottom: 2px solid transparent;
+            margin-bottom: -1px;
+        }
+        .tab-item:hover { color: #5C62D9; }
+        .tab-item.active {
+            color: #5C62D9;
+            font-weight: 500;
+            border-bottom-color: #5C62D9;
+        }
+
+        /* Tab 内容 */
+        .tab-pane { display: none; flex: 1; flex-direction: column; }
+        .tab-pane.active { display: flex; }
+
+        /* 筛选面板 */
+        .filter-panel {
+            padding: 16px 20px;
+            background: #fff;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .filter-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px 24px;
+        }
+        .filter-grid-2 { grid-template-columns: repeat(2, 1fr); }
+        .filter-grid-4 { grid-template-columns: repeat(4, 1fr); }
+        .filter-item {
+            display: flex; align-items: center; min-height: 28px;
+        }
+        .filter-label {
+            color: #333; min-width: 90px; text-align: right;
+            margin-right: 8px; font-size: 12px; white-space: nowrap;
+        }
+        .filter-label-new {
+            color: #52c41a !important;
+        }
+        .new-badge {
+            display: inline-block;
+            background: #52c41a;
+            color: #fff;
+            font-size: 8px;
+            padding: 0 3px;
+            border-radius: 2px;
+            margin-left: 1px;
+            line-height: 13px;
+            vertical-align: super;
+            font-weight: 500;
+            pointer-events: none;
+        }
+        .filter-input {
+            flex: 1; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9;
+            border-radius: 4px; font-size: 12px; color: #333; background: #fff;
+        }
+        .filter-input:focus { outline: none; border-color: #5C62D9; }
+        .filter-input::placeholder { color: #bfbfbf; }
+        .filter-select {
+            flex: 1; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9;
+            border-radius: 4px; font-size: 12px; color: #bfbfbf; background: #fff; cursor: pointer;
+        }
+        .filter-select.has-value { color: #333; }
+        .filter-actions {
+            display: flex; gap: 8px; align-items: center;
+        }
+
+        /* 状态标签 Tab */
+        .status-tags {
+            display: flex; gap: 0; border: 1px solid #d9d9d9; border-radius: 4px; overflow: hidden;
+            height: 28px; flex: 1;
+        }
+        .status-tag {
+            padding: 0 16px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: #666; font-size: 12px; border-right: 1px solid #d9d9d9;
+        }
+        .status-tag:last-child { border-right: none; }
+        .status-tag:hover { background: #fafafa; }
+        .status-tag.active { background: #f0f0fc; color: #5C62D9; font-weight: 500; }
+
+        /* 多选下拉 */
+        .multi-select-wrap { position: relative; flex: 1; }
+        .multi-select-trigger { display: flex; align-items: center; justify-content: space-between; padding: 0 8px; border: 1px solid #d9d9d9; border-radius: 4px; cursor: pointer; font-size: 12px; background: #fff; height: 28px; }
+        .multi-select-trigger:hover { border-color: #5C62D9; }
+        .multi-select-placeholder { color: #bfbfbf; }
+        .multi-select-arrow { font-size: 10px; color: #999; margin-left: 8px; }
+        .multi-select-dropdown { display: none; position: absolute; top: 100%; left: 0; right: 0; background: #fff; border: 1px solid #e0e0e0; border-radius: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1000; padding: 6px 0; max-height: 200px; overflow-y: auto; }
+        .multi-select-dropdown.open { display: block; }
+        .multi-select-dropdown label { display: flex; align-items: center; padding: 5px 12px; cursor: pointer; font-size: 12px; color: #333; }
+        .multi-select-dropdown label:hover { background: #f5f5ff; }
+        .multi-select-dropdown label.selected { background: #f0f0fc; color: #5C62D9; }
+        .multi-select-dropdown label input[type="checkbox"] { display: none; }
+
+        .btn {
+            padding: 5px 16px; border: 1px solid #d9d9d9; border-radius: 4px;
+            background: #fff; cursor: pointer; font-size: 12px; color: #333;
+            min-width: 60px; height: 28px;
+        }
+        .btn:hover { border-color: #5C62D9; color: #5C62D9; }
+        .btn-primary { background: #5C62D9; border-color: #5C62D9; color: #fff; }
+        .btn-primary:hover { background: #4f54c0; border-color: #4f54c0; color: #fff; }
+        .btn-new-feature { color: #52c41a !important; border-color: #52c41a !important; }
+        .btn-new-feature:hover { color: #73d13d !important; border-color: #73d13d !important; }
+
+        /* 工具栏 */
+        .table-toolbar {
+            padding: 12px 20px;
+            background: #fff;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            border-bottom: 1px solid #f0f0f0;
+        }
+        .table-toolbar-left { display: flex; gap: 8px; }
+        .table-toolbar .btn { min-width: auto; padding: 5px 12px; }
+
+        /* 表格 */
+        .table-wrapper { flex: 1; overflow-x: auto; }
+        .table-wrapper::-webkit-scrollbar { height: 10px; }
+        .table-wrapper::-webkit-scrollbar-track { background: #f5f5f5; border-radius: 5px; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 5px; border: 2px solid #f5f5f5; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead th {
+            background: #f0f0fc;
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 500;
+            color: #333;
+            border-bottom: 1px solid #e8e8e8;
+            white-space: nowrap;
+            position: relative;
+            user-select: none;
+        }
+        .col-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 10; }
+        .col-resizer:hover, .col-resizer.active { background-color: #5C62D9; }
+        tbody td { padding: 12px; border-bottom: 1px solid #f0f0f0; color: #333; vertical-align: top; }
+        tbody tr:hover { background-color: #fafafa; }
+
+        .info-icon {
+            display: inline-block; width: 14px; height: 14px; line-height: 12px;
+            text-align: center; font-size: 10px; color: #999; border: 1px solid #ccc;
+            border-radius: 50%; margin-left: 4px; cursor: help;
+        }
+
+        .col-checkbox { width: 40px; }
+        .col-index { width: 60px; }
+
+        .col-action-link { color: #5C62D9; cursor: pointer; margin-right: 8px; }
+        .col-action-link:hover { text-decoration: underline; }
+        .col-action-link.disabled { color: #999; cursor: not-allowed; }
+        .col-action-link.disabled:hover { text-decoration: none; }
+
+        .more-wrap { position: relative; display: inline-block; }
+        .more-toggle::after { content: ' ▼'; font-size: 9px; }
+        .more-dropdown {
+            display: none; position: fixed; background: #fff; border: 1px solid #e8e8e8;
+            border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            z-index: 9999; min-width: 100px; padding: 4px 0;
+        }
+        .more-dropdown .col-action-link {
+            display: block; padding: 6px 12px; margin-right: 0;
+            white-space: nowrap; line-height: 1.5;
+        }
+        .more-dropdown .col-action-link:hover { background: #f5f5f5; text-decoration: none; }
+        .more-wrap.open .more-dropdown { display: block; }
+
+        .col-settings-wrapper { display: inline-flex; align-items: center; gap: 4px; }
+        .col-settings-btn {
+            display: inline-block; width: 16px; height: 16px; line-height: 14px;
+            text-align: center; font-size: 12px; color: #999; border: 1px solid #d9d9d9;
+            border-radius: 2px; cursor: pointer;
+        }
+        .col-settings-btn:hover { color: #5C62D9; border-color: #5C62D9; }
+
+        /* 分页 */
+        .pagination-bar {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 12px 16px; border-top: 1px solid #e8e8e8; background: #fafafa;
+        }
+        .pagination-info { color: #666; }
+        .pagination { display: flex; align-items: center; gap: 4px; }
+        .page-btn {
+            min-width: 28px; height: 28px; padding: 0 8px; border: 1px solid #d9d9d9;
+            border-radius: 4px; background: #fff; cursor: pointer; font-size: 12px; color: #333;
+        }
+        .page-btn:hover { border-color: #5C62D9; color: #5C62D9; }
+        .page-btn.active { background: #5C62D9; border-color: #5C62D9; color: #fff; }
+        .page-size { display: flex; align-items: center; gap: 8px; }
+        .page-size select { height: 28px; padding: 0 8px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; font-size: 12px; }
+
+        /* 弹窗 */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0, 0, 0, 0.45); z-index: 2000;
+            display: none; align-items: center; justify-content: center;
+        }
+        .modal-overlay.active { display: flex; }
+        .modal {
+            background: #fff; border-radius: 4px; width: 900px; max-width: 90vw;
+            max-height: 90vh; display: flex; flex-direction: column;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+        }
+        .modal-header {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 20px; border-bottom: 1px solid #e8e8e8;
+        }
+        .modal-title { font-size: 14px; font-weight: 500; }
+        .modal-close { background: none; border: none; font-size: 20px; cursor: pointer; color: #999; line-height: 1; padding: 0; }
+        .modal-close:hover { color: #333; }
+        .modal-body { padding: 20px; overflow: auto; flex: 1; }
+        .modal-footer { padding: 12px 20px; border-top: 1px solid #e8e8e8; display: flex; justify-content: flex-end; gap: 8px; }
+
+        .customer-service {
+            position: fixed; right: 20px; bottom: 60px; width: 40px; height: 40px;
+            background: #5C62D9; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            font-size: 20px; color: #fff; z-index: 1000;
+        }
+
+        .tips-banner { width: 1080px; max-width: 100%; margin: 0 auto; padding: 10px 16px; background: #fffbe6; border: 1px solid #ffe58f; border-radius: 4px; color: #8c6d00; font-size: 12px; line-height: 1.5; display: flex; justify-content: space-between; align-items: center; }
+        .tips-banner-close { cursor: pointer; color: #8c6d00; font-size: 16px; margin-left: 12px; flex-shrink: 0; }
+        .tips-banner-close:hover { color: #d48806; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            <a href="product-mapping.html" class="nav-item">
+            </a>
+            <a href="invoice-flow-config.html" class="nav-item active">
+                <span class="nav-text">开票流程配置</span>
+            </a>
+            <a href="index.html" class="nav-item">
+                <span class="nav-text">对账管理</span>
+            </a>
+            <a href="invoice.html" class="nav-item">
+                <span class="nav-text">发票管理</span>
+            </a>
+            <a href="verification.html" class="nav-item">
+                <span class="nav-text">发票核销(新)</span>
+            </a>
+            <a href="verification-trace.html" class="nav-item">
+                <span class="nav-text">发票台账</span>
+            </a>
+        </nav>
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+    </aside>
+
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn" title="收起/展开侧边栏">
+        <span class="toggle-icon">&#9664;</span>
+    </div>
+
+    <main class="main-content" id="mainContent">
+        <div class="page-container">
+            <!-- 页面标题 -->
+            <div class="page-header">开票流程配置</div>
+
+            <div class="tips-banner"><span>{tips说明文案}</span><span class="tips-banner-close" onclick="this.parentElement.remove()">&times;</span></div>
+
+            <!-- Tab 栏 -->
+            <div class="tab-bar">
+                <div class="tab-item active" data-tab="subject">服务主体维度</div>
+                <div class="tab-item" data-tab="customer">客户维度</div>
+            </div>
+
+            <!-- Tab 1: 服务主体维度 -->
+            <div class="tab-pane active" data-pane="subject">
+                <!-- 筛选面板 -->
+                <div class="filter-panel">
+                    <div class="filter-grid filter-grid-3">
+                        <div class="filter-item" style="grid-column: 1 / -1; margin-bottom: 8px;">
+                            <span class="filter-label">状态：</span>
+                            <div class="status-tags" style="flex: 1;">
+                                <div class="status-tag active" data-status="all" style="width: 72px; text-align: center;">全部</div>
+                                <div class="status-tag" data-status="draft" style="width: 72px; text-align: center;">草稿</div>
+                                <div class="status-tag" data-status="pending" style="width: 72px; text-align: center;">待审核</div>
+                                <div class="status-tag" data-status="active" style="width: 72px; text-align: center;">启用</div>
+                                <div class="status-tag" data-status="disabled" style="width: 72px; text-align: center;">停用</div>
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">流程编号：</span>
+                            <input type="text" class="filter-input" placeholder="多个输入空格或逗号分隔，最多200个">
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">服务主体：</span>
+                            <select class="filter-select">
+                                <option value="">请选择服务主体</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label filter-label-new">开票限期：<span class="new-badge">new</span></span>
+                            <div class="multi-select-wrap" id="invoiceDeadlineFilter">
+                                <div class="multi-select-trigger" onclick="toggleMultiSelect('invoiceDeadlineFilter')">
+                                    <span class="multi-select-placeholder">请选择</span>
+                                    <span class="multi-select-arrow">▼</span>
+                                </div>
+                                <div class="multi-select-dropdown">
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="30天" onchange="updateMultiSelect('invoiceDeadlineFilter')"> 30天</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="60天" onchange="updateMultiSelect('invoiceDeadlineFilter')"> 60天</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="90天" onchange="updateMultiSelect('invoiceDeadlineFilter')"> 90天</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label filter-label-new">客户注册地：<span class="new-badge">new</span></span>
+                            <div class="multi-select-wrap" id="clientRegionFilter">
+                                <div class="multi-select-trigger" onclick="toggleMultiSelect('clientRegionFilter')">
+                                    <span class="multi-select-placeholder">请选择</span>
+                                    <span class="multi-select-arrow">▼</span>
+                                </div>
+                                <div class="multi-select-dropdown">
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="北美" onchange="updateMultiSelect('clientRegionFilter')"> 北美</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="欧洲" onchange="updateMultiSelect('clientRegionFilter')"> 欧洲</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="华南" onchange="updateMultiSelect('clientRegionFilter')"> 华南</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="华东" onchange="updateMultiSelect('clientRegionFilter')"> 华东</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label filter-label-new">默认开票方式：<span class="new-badge">new</span></span>
+                            <div class="multi-select-wrap" id="invoiceMethodFilter">
+                                <div class="multi-select-trigger" onclick="toggleMultiSelect('invoiceMethodFilter')">
+                                    <span class="multi-select-placeholder">请选择</span>
+                                    <span class="multi-select-arrow">▼</span>
+                                </div>
+                                <div class="multi-select-dropdown">
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="自动开票" onchange="updateMultiSelect('invoiceMethodFilter')"> 自动开票</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="手动开票" onchange="updateMultiSelect('invoiceMethodFilter')"> 手动开票</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filter-actions" style="margin-top: 12px;">
+                        <button class="btn btn-primary">查 询</button>
+                        <button class="btn">重 置</button>
+                    </div>
+                </div>
+
+                <!-- 工具栏 -->
+                <div class="table-toolbar">
+                    <div class="table-toolbar-left">
+                        <button class="btn btn-primary">+ 新增</button>
+                        <button class="btn">启用</button>
+                        <button class="btn">停用</button>
+                        <button class="btn">导出</button>
+                        <button class="btn">范围配置</button>
+                        <button class="btn">开票场景定义</button>
+                        <button class="btn btn-new-feature" onclick="window.location.href='product-mapping.html'">发票品名映射<span class="new-badge">new</span></button>
+                        <button class="btn btn-new-feature" onclick="window.location.href='product-default-rule.html'">品名默认规则<span class="new-badge">new</span></button>
+                    </div>
+                </div>
+
+                <!-- 表格 -->
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="col-checkbox"><input type="checkbox"></th>
+                                <th class="col-index">序号<div class="col-resizer"></div></th>
+                                <th>流程编号<div class="col-resizer"></div></th>
+                                <th>服务主体<div class="col-resizer"></div></th>
+                                <th>发票类型<span class="info-icon">i</span><div class="col-resizer"></div></th>
+                                <th>发起开票申请<div class="col-resizer"></div></th>
+                                <th>开票规则<div class="col-resizer"></div></th>
+                                <th>预期天数<div class="col-resizer"></div></th>
+                                <th>开票币种<div class="col-resizer"></div></th>
+                                <th>开票币种汇率<div class="col-resizer"></div></th>
+                                <th>默认开票方式<div class="col-resizer"></div></th>
+                                <th>推送开票<div class="col-resizer"></div></th>
+                                <th>备注时钟手动<div class="col-resizer"></div></th>
+                                <th>开票通知人<div class="col-resizer"></div></th>
+                                <th>状态<div class="col-resizer"></div></th>
+                                <th>操作<span class="col-settings-wrapper"><span class="col-settings-btn" title="列设置">⚙</span></span></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="col-checkbox"><input type="checkbox"></td>
+                                <td>1</td>
+                                <td>ISC25121800056</td>
+                                <td>Goodcang Holdin gs B.V.</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账单审核后xx日期</td>
+                                <td>0</td>
+                                <td>账单币种</td>
+                                <td>记账汇率</td>
+                                <td>FPS按标手动</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>--</td>
+                                <td>停用</td>
+                                <td>
+                                    <span class="col-action-link">提交</span>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link">启用</span>
+                                    <div class="more-wrap">
+                                        <span class="col-action-link more-toggle">更多</span>
+                                        <div class="more-dropdown">
+                                            <span class="col-action-link">复制</span>
+                                            <span class="col-action-link">删除</span>
+                                            <span class="col-action-link">操作日志</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="col-checkbox"><input type="checkbox"></td>
+                                <td>2</td>
+                                <td>ISC25121800055</td>
+                                <td>日贸株式会社</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账务日期次月xx日</td>
+                                <td>9</td>
+                                <td>JPY</td>
+                                <td>记账汇率</td>
+                                <td>FPS标准自动</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>--</td>
+                                <td>启用</td>
+                                <td>
+                                    <span class="col-action-link">提交</span>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link disabled">启用</span>
+                                    <div class="more-wrap">
+                                        <span class="col-action-link more-toggle">更多</span>
+                                        <div class="more-dropdown">
+                                            <span class="col-action-link">复制</span>
+                                            <span class="col-action-link">删除</span>
+                                            <span class="col-action-link">操作日志</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="col-checkbox"><input type="checkbox"></td>
+                                <td>3</td>
+                                <td>ISC25121800054</td>
+                                <td>EVERFAST PTY LTD</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账务日期次月xx日期</td>
+                                <td>9</td>
+                                <td>AUD</td>
+                                <td>记账汇率</td>
+                                <td>共享系统开票</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>--</td>
+                                <td>启用</td>
+                                <td>
+                                    <span class="col-action-link">提交</span>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link disabled">启用</span>
+                                    <div class="more-wrap">
+                                        <span class="col-action-link more-toggle">更多</span>
+                                        <div class="more-dropdown">
+                                            <span class="col-action-link">复制</span>
+                                            <span class="col-action-link">删除</span>
+                                            <span class="col-action-link">操作日志</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="col-checkbox"><input type="checkbox"></td>
+                                <td>4</td>
+                                <td>ISC25121800053</td>
+                                <td>AURORA LOGISTIC S SPÓŁKA Z OGRA NICZONA ODPOW IEDZIALNOŚCIĄ</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账单审核后xx日期</td>
+                                <td>0</td>
+                                <td>PLN</td>
+                                <td>记账汇率</td>
+                                <td>FPS按标手动</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>--</td>
+                                <td>启用</td>
+                                <td>
+                                    <span class="col-action-link">提交</span>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link disabled">启用</span>
+                                    <div class="more-wrap">
+                                        <span class="col-action-link more-toggle">更多</span>
+                                        <div class="more-dropdown">
+                                            <span class="col-action-link">复制</span>
+                                            <span class="col-action-link">删除</span>
+                                            <span class="col-action-link">操作日志</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="col-checkbox"><input type="checkbox"></td>
+                                <td>5</td>
+                                <td>ISC25121800052</td>
+                                <td>Super Smart Servi ce ltd</td>
+                                <td>电子发票(形式发票)</td>
+                                <td>客户.财务</td>
+                                <td>账单审核后xx日期</td>
+                                <td>0</td>
+                                <td>GBP</td>
+                                <td>记账汇率</td>
+                                <td>FPS按标手动</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>--</td>
+                                <td>启用</td>
+                                <td>
+                                    <span class="col-action-link">提交</span>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link disabled">启用</span>
+                                    <div class="more-wrap">
+                                        <span class="col-action-link more-toggle">更多</span>
+                                        <div class="more-dropdown">
+                                            <span class="col-action-link">复制</span>
+                                            <span class="col-action-link">删除</span>
+                                            <span class="col-action-link">操作日志</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="col-checkbox"><input type="checkbox"></td>
+                                <td>6</td>
+                                <td>ISC25121800051</td>
+                                <td>JS LOGISTICS</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账单审核后xx日期</td>
+                                <td>0</td>
+                                <td>EUR</td>
+                                <td>记账汇率</td>
+                                <td>FPS标准自动</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>--</td>
+                                <td>启用</td>
+                                <td>
+                                    <span class="col-action-link">提交</span>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link disabled">启用</span>
+                                    <div class="more-wrap">
+                                        <span class="col-action-link more-toggle">更多</span>
+                                        <div class="more-dropdown">
+                                            <span class="col-action-link">复制</span>
+                                            <span class="col-action-link">删除</span>
+                                            <span class="col-action-link">操作日志</span>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <div class="pagination-bar">
+                    <div class="pagination-info">共 56 条</div>
+                    <div class="pagination">
+                        <button class="page-btn">上一页</button>
+                        <button class="page-btn active">1</button>
+                        <button class="page-btn">2</button>
+                        <button class="page-btn">3</button>
+                        <span>...</span>
+                        <button class="page-btn">下一页</button>
+                        <span>跳转</span>
+                        <input type="text" value="1" style="width:40px;text-align:center;border:1px solid #d9d9d9;border-radius:4px;padding:2px 4px;margin:0 4px;">
+                        <span>页</span>
+                    </div>
+                    <div class="page-size">
+                        <select>
+                            <option>20条/页</option>
+                            <option>50条/页</option>
+                            <option>100条/页</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tab 2: 客户维度 -->
+            <div class="tab-pane" data-pane="customer">
+                <!-- 筛选面板 -->
+                <div class="filter-panel">
+                    <div class="filter-grid filter-grid-4">
+                        <div class="filter-item" style="grid-column: 1 / -1; margin-bottom: 8px;">
+                            <span class="filter-label">状态：</span>
+                            <div class="status-tags" style="flex: 1;">
+                                <div class="status-tag active" data-status="all" style="width: 72px; text-align: center;">全部</div>
+                                <div class="status-tag" data-status="draft" style="width: 72px; text-align: center;">草稿</div>
+                                <div class="status-tag" data-status="pending" style="width: 72px; text-align: center;">待审核</div>
+                                <div class="status-tag" data-status="active" style="width: 72px; text-align: center;">启用</div>
+                                <div class="status-tag" data-status="disabled" style="width: 72px; text-align: center;">停用</div>
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">特殊客户标识：</span>
+                            <div class="status-tags">
+                                <div class="status-tag active" data-status="all" style="width: 72px; text-align: center;">全部</div>
+                                <div class="status-tag" data-status="yes" style="width: 72px; text-align: center;">是</div>
+                                <div class="status-tag" data-status="no" style="width: 72px; text-align: center;">否</div>
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">客户流程编号：</span>
+                            <input type="text" class="filter-input" placeholder="多个输入空格或逗号分隔，最多200个">
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">主体流程编号：</span>
+                            <input type="text" class="filter-input" placeholder="多个输入空格或逗号分隔，最多200个">
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">编码：</span>
+                            <select class="filter-select">
+                                <option value="">客户代码</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">服务主体：</span>
+                            <select class="filter-select">
+                                <option value="">请选择服务主体</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">开票规则：</span>
+                            <select class="filter-select">
+                                <option value="">请选择开票规则</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">客户层级：</span>
+                            <select class="filter-select">
+                                <option value="">请选择客户层级</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">操作人：</span>
+                            <select class="filter-select">
+                                <option value="">创建人</option>
+                            </select>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">创建人：</span>
+                            <input type="text" class="filter-input" placeholder="请输入操作人">
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">操作时间：</span>
+                            <div style="flex:1;display:flex;gap:4px;align-items:center;">
+                                <select class="filter-select" style="flex:0 0 80px;">
+                                    <option>创建时间</option>
+                                </select>
+                                <input type="text" class="filter-input" placeholder="开始日期" style="width:45%;">
+                                <span>~</span>
+                                <input type="text" class="filter-input" placeholder="结束日期" style="width:45%;">
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">开票币种汇率：</span>
+                            <div class="multi-select-wrap" id="currencyRateFilter">
+                                <div class="multi-select-trigger" onclick="toggleMultiSelect('currencyRateFilter')">
+                                    <span class="multi-select-placeholder">请选择</span>
+                                    <span class="multi-select-arrow">▼</span>
+                                </div>
+                                <div class="multi-select-dropdown">
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="指定汇率" onchange="updateMultiSelect('currencyRateFilter')"> 指定汇率</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="实时汇率" onchange="updateMultiSelect('currencyRateFilter')"> 实时汇率</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="月初汇率" onchange="updateMultiSelect('currencyRateFilter')"> 月初汇率</label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="filter-item">
+                            <span class="filter-label">默认开票方式：</span>
+                            <div class="multi-select-wrap" id="invoiceMethod2Filter">
+                                <div class="multi-select-trigger" onclick="toggleMultiSelect('invoiceMethod2Filter')">
+                                    <span class="multi-select-placeholder">请选择</span>
+                                    <span class="multi-select-arrow">▼</span>
+                                </div>
+                                <div class="multi-select-dropdown">
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="自动开票" onchange="updateMultiSelect('invoiceMethod2Filter')"> 自动开票</label>
+                                    <label onclick="var cb=this.querySelector('input');cb.checked=!cb.checked;cb.dispatchEvent(new Event('change'))"><input type="checkbox" value="手动开票" onchange="updateMultiSelect('invoiceMethod2Filter')"> 手动开票</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filter-actions" style="margin-top: 12px;">
+                        <button class="btn btn-primary">查 询</button>
+                        <button class="btn">重 置</button>
+                    </div>
+                </div>
+
+                <!-- 工具栏 -->
+                <div class="table-toolbar">
+                    <div class="table-toolbar-left">
+                        <button class="btn btn-primary">导出</button>
+                    </div>
+                </div>
+
+                <!-- 表格 -->
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="col-index">序号<div class="col-resizer"></div></th>
+                                <th>客户流程编号<div class="col-resizer"></div></th>
+                                <th>主体流程编号<div class="col-resizer"></div></th>
+                                <th>客户编码<div class="col-resizer"></div></th>
+                                <th>发票类型<span class="info-icon">i</span><div class="col-resizer"></div></th>
+                                <th>发起开票申请<div class="col-resizer"></div></th>
+                                <th>开票币种<div class="col-resizer"></div></th>
+                                <th>开票币种汇率<div class="col-resizer"></div></th>
+                                <th>开票方式<div class="col-resizer"></div></th>
+                                <th>推送开票<div class="col-resizer"></div></th>
+                                <th>备注时钟手动推送开票<div class="col-resizer"></div></th>
+                                <th>特殊客户标识<div class="col-resizer"></div></th>
+                                <th>发票自动关联账单<div class="col-resizer"></div></th>
+                                <th>开票通知人<div class="col-resizer"></div></th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>1</td>
+                                <td>ICC26072200002</td>
+                                <td>ISC25121800001</td>
+                                <td>ACG540203</td>
+                                <td>增值税普通发票</td>
+                                <td>客户.财务</td>
+                                <td>CNY</td>
+                                <td>记账汇率</td>
+                                <td>共享系统开票</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td>zt19724</td>
+                                <td>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link">操作日志</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>2</td>
+                                <td>ICC26072200004</td>
+                                <td>ISC25121800001</td>
+                                <td>ACG540202</td>
+                                <td>增值税普通发票</td>
+                                <td>客户.财务</td>
+                                <td>CNY</td>
+                                <td>记账汇率</td>
+                                <td>共享系统开票</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td>zt19724</td>
+                                <td>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link">操作日志</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>3</td>
+                                <td>ICC26072000002</td>
+                                <td>ISC25121800001</td>
+                                <td>ACG540201</td>
+                                <td>增值税普通发票</td>
+                                <td>客户.财务</td>
+                                <td>CNY</td>
+                                <td>记账汇率</td>
+                                <td>共享系统开票</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td>zt19724</td>
+                                <td>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link">操作日志</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>4</td>
+                                <td>ICC26063000002</td>
+                                <td>ISC25121800008</td>
+                                <td>ACG538802</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账单币种</td>
+                                <td>记账汇率</td>
+                                <td>共享系统开票</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td>--</td>
+                                <td>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link">操作日志</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>5</td>
+                                <td>ICC26062900002</td>
+                                <td>ISC25121800037</td>
+                                <td>ACG538801</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账单币种</td>
+                                <td>记账汇率</td>
+                                <td>FPS标准自动</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td>zt14033</td>
+                                <td>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link">操作日志</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>6</td>
+                                <td>ICC26061100004</td>
+                                <td>ISC25121800004</td>
+                                <td>ACG537604</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账单币种</td>
+                                <td>记账汇率</td>
+                                <td>共享系统开票</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td>--</td>
+                                <td>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link">操作日志</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td>7</td>
+                                <td>ICC26061100002</td>
+                                <td>ISC25121800008</td>
+                                <td>ACG537603</td>
+                                <td>形式发票</td>
+                                <td>客户.财务</td>
+                                <td>账单币种</td>
+                                <td>记账汇率</td>
+                                <td>共享系统开票</td>
+                                <td>自动</td>
+                                <td>是</td>
+                                <td>否</td>
+                                <td>否</td>
+                                <td>--</td>
+                                <td>
+                                    <span class="col-action-link">编辑</span>
+                                    <span class="col-action-link">操作日志</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 分页 -->
+                <div class="pagination-bar">
+                    <div class="pagination-info">共 4046 条</div>
+                    <div class="pagination">
+                        <button class="page-btn">上一页</button>
+                        <button class="page-btn active">1</button>
+                        <button class="page-btn">2</button>
+                        <button class="page-btn">3</button>
+                        <button class="page-btn">4</button>
+                        <button class="page-btn">5</button>
+                        <button class="page-btn">6</button>
+                        <span>...</span>
+                        <button class="page-btn">203</button>
+                        <button class="page-btn">下一页</button>
+                        <span>跳转</span>
+                        <input type="text" value="1" style="width:40px;text-align:center;border:1px solid #d9d9d9;border-radius:4px;padding:2px 4px;margin:0 4px;">
+                        <span>页</span>
+                    </div>
+                    <div class="page-size">
+                        <select>
+                            <option>20条/页</option>
+                            <option>50条/页</option>
+                            <option>100条/页</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <div class="customer-service">💬</div>
+
+    <script>
+        // 侧边栏折叠/展开
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        const sidebar = document.getElementById('sidebar');
+        if (sidebarToggleBtn) {
+            sidebarToggleBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                sidebar.classList.toggle('collapsed');
+                sidebarToggleBtn.classList.toggle('collapsed');
+            });
+        }
+
+        // 侧边栏宽度拖拽
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        let isSidebarResizing = false;
+        let sidebarStartX = 0;
+        let sidebarStartWidth = 0;
+        if (sidebarResizer) {
+            sidebarResizer.addEventListener('mousedown', e => {
+                e.preventDefault();
+                isSidebarResizing = true;
+                sidebarResizer.classList.add('active');
+                sidebarStartX = e.pageX;
+                sidebarStartWidth = sidebar.offsetWidth;
+                document.body.style.cursor = 'col-resize';
+                document.body.style.userSelect = 'none';
+            });
+        }
+        document.addEventListener('mousemove', e => {
+            if (!isSidebarResizing) return;
+            const dx = e.pageX - sidebarStartX;
+            const newWidth = sidebarStartWidth + dx;
+            if (newWidth >= 160 && newWidth <= 400) sidebar.style.width = newWidth + 'px';
+        });
+        document.addEventListener('mouseup', () => {
+            if (isSidebarResizing) {
+                isSidebarResizing = false;
+                if (sidebarResizer) sidebarResizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // Tab 切换
+        document.querySelectorAll('.tab-item').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const target = tab.getAttribute('data-tab');
+                document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+                tab.classList.add('active');
+                document.querySelector(`[data-pane="${target}"]`).classList.add('active');
+            });
+        });
+
+        // 状态标签切换
+        document.querySelectorAll('.status-tags').forEach(group => {
+            group.addEventListener('click', e => {
+                const tag = e.target.closest('.status-tag');
+                if (!tag) return;
+                group.querySelectorAll('.status-tag').forEach(t => t.classList.remove('active'));
+                tag.classList.add('active');
+            });
+        });
+
+        // 下拉框有值时改文字色
+        document.querySelectorAll('.filter-select').forEach(s => {
+            s.addEventListener('change', e => {
+                e.target.classList.toggle('has-value', e.target.value !== '');
+            });
+        });
+
+        // 列宽拖拽
+        let activeResizer = null, startX = 0, startWidth = 0, thElem = null, nextThElem = null, nextStartWidth = 0;
+        document.querySelectorAll('.col-resizer').forEach(r => {
+            r.addEventListener('mousedown', e => {
+                e.preventDefault(); e.stopPropagation();
+                activeResizer = r; r.classList.add('active');
+                thElem = r.parentElement; nextThElem = thElem.nextElementSibling;
+                startX = e.pageX; startWidth = thElem.offsetWidth;
+                if (nextThElem) nextStartWidth = nextThElem.offsetWidth;
+                document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+            });
+        });
+        document.addEventListener('mousemove', e => {
+            if (!activeResizer) return;
+            const dx = e.pageX - startX, w = startWidth + dx;
+            if (w > 40) {
+                thElem.style.width = w + 'px'; thElem.style.minWidth = w + 'px';
+                if (nextThElem && nextStartWidth - dx > 40) {
+                    nextThElem.style.width = (nextStartWidth - dx) + 'px';
+                    nextThElem.style.minWidth = (nextStartWidth - dx) + 'px';
+                }
+            }
+        });
+        document.addEventListener('mouseup', () => {
+            if (activeResizer) {
+                activeResizer.classList.remove('active');
+                activeResizer = null; thElem = null; nextThElem = null;
+                document.body.style.cursor = ''; document.body.style.userSelect = '';
+            }
+        });
+
+        // 【更多】下拉
+        document.querySelectorAll('.more-toggle').forEach(toggle => {
+            toggle.addEventListener('click', e => {
+                e.stopPropagation();
+                const wrap = toggle.closest('.more-wrap');
+                const dropdown = wrap.querySelector('.more-dropdown');
+                document.querySelectorAll('.more-wrap.open').forEach(w => { if (w !== wrap) w.classList.remove('open'); });
+                const isOpen = wrap.classList.toggle('open');
+                if (isOpen && dropdown) {
+                    const rect = toggle.getBoundingClientRect();
+                    dropdown.style.top = (rect.bottom + 2) + 'px';
+                    dropdown.style.left = rect.left + 'px';
+                }
+            });
+        });
+        document.addEventListener('click', () => {
+            document.querySelectorAll('.more-wrap.open').forEach(w => w.classList.remove('open'));
+        });
+
+        // 全选
+        document.querySelectorAll('thead .col-checkbox input').forEach(hcb => {
+            hcb.addEventListener('change', () => {
+                document.querySelectorAll('tbody .col-checkbox input').forEach(cb => cb.checked = hcb.checked);
+            });
+        });
+
+        // 多选下拉
+        function toggleMultiSelect(id) {
+            var dd = document.getElementById(id).querySelector('.multi-select-dropdown');
+            dd.classList.toggle('open');
+        }
+        function updateMultiSelect(id) {
+            var wrap = document.getElementById(id);
+            var cbs = wrap.querySelectorAll('input[type="checkbox"]:checked');
+            var ph = wrap.querySelector('.multi-select-placeholder');
+            var vals = Array.from(cbs).map(function(cb) { return cb.value; });
+            ph.textContent = vals.length > 0 ? vals.join('、') : '请选择';
+            ph.style.color = vals.length > 0 ? '#333' : '#bfbfbf';
+        }
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.multi-select-wrap')) {
+                document.querySelectorAll('.multi-select-dropdown.open').forEach(function(dd) { dd.classList.remove('open'); });
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>开票申请</title>
+    <link rel="prefetch" href="index.html">
+    <link rel="prefetch" href="invoice.html">
+    <link rel="prefetch" href="verification.html">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+            font-size: 12px;
+            color: #333;
+            background-color: #f5f5f5;
+            display: flex;
+            min-height: 100vh;
+        }
+
+        .sidebar {
+            background: #fff;
+            border-right: 1px solid #e8e8e8;
+            width: 200px;
+            min-width: 160px;
+            max-width: 400px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            transition: width 0s;
+        }
+        .sidebar-toggle-btn:hover { background: #5C62D9; color: #fff; border-color: #5C62D9; }
+        .sidebar.collapsed { width: 0 !important; min-width: 0 !important; padding: 0 !important; overflow: hidden; border-right: none; }
+        .sidebar.collapsed  .sidebar.collapsed .sidebar-nav, .sidebar.collapsed .sidebar-resizer { opacity: 0; pointer-events: none; }
+        .sidebar.collapsed + .main-content .sidebar-toggle-btn, .sidebar.collapsed ~ .sidebar-toggle-btn { left: 8px; }
+        .sidebar-toggle-btn .toggle-icon { display: inline-block; transition: transform 0.3s; }
+        .sidebar-toggle-btn.collapsed .toggle-icon { transform: rotate(180deg); }
+        .sidebar-nav { padding: 12px 0; flex: 1; }
+        .nav-item { display: flex; align-items: center; gap: 10px; padding: 12px 20px; color: #666; text-decoration: none; transition: all 0.2s; cursor: pointer; font-size: 13px; }
+        .nav-item:hover { background: #f5f5f5; color: #5C62D9; }
+        .nav-item.active { background: #f0f0f8; color: #5C62D9; border-right: 3px solid #5C62D9; }
+        .sidebar-resizer { position: absolute; right: 0; top: 0; bottom: 0; width: 5px; cursor: col-resize; z-index: 100; transition: background 0.2s; }
+        .sidebar-resizer:hover, .sidebar-resizer.active { background: #5C62D9; }
+
+        .main-content { flex: 1; overflow-x: hidden; min-width: 0; }
+        .page-container { padding: 16px; max-width: 1600px; }
+
+        .breadcrumb { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; color: #666; font-size: 12px; }
+        .breadcrumb a { color: #5C62D9; text-decoration: none; }
+        .breadcrumb a:hover { text-decoration: underline; }
+        .breadcrumb-separator { color: #999; }
+        .breadcrumb-current { color: #333; font-weight: 500; }
+
+        .section-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #333; margin-bottom: 12px; padding-left: 8px; border-left: 3px solid #5C62D9; }
+        .section-title .sub { font-size: 12px; color: #f5222d; font-weight: normal; margin-left: 8px; }
+
+        .panel { background: #fff; border: 1px solid #e8e8e8; border-radius: 4px; padding: 16px; margin-bottom: 12px; }
+
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        thead th { background-color: #f0f0f8; color: #666; font-weight: 500; text-align: left; padding: 10px 8px; border-bottom: 1px solid #e8e8e8; white-space: nowrap; position: relative; user-select: none; }
+        tbody td { padding: 10px 8px; border-bottom: 1px solid #f0f0f0; color: #333; vertical-align: middle; line-height: 1.5; }
+        tbody tr:hover { background-color: #fafafa; }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .col-checkbox { width: 40px; text-align: center; }
+        .col-index { width: 50px; }
+        .col-small { width: 80px; }
+        .col-medium { width: 120px; }
+        .col-large { width: 180px; }
+        .col-action { width: 80px; }
+        .amount { text-align: right; font-family: "SF Mono", Monaco, monospace; }
+
+        .form-row { display: flex; align-items: center; gap: 24px; margin-bottom: 12px; flex-wrap: wrap; }
+        .form-row:last-child { margin-bottom: 0; }
+        .form-item { display: flex; align-items: center; gap: 8px; }
+        .form-item .label { color: #666; min-width: 80px; text-align: right; flex-shrink: 0; }
+        .form-item input, .form-item select, .form-item textarea { flex: 1; padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 4px; font-size: 12px; outline: none; min-width: 120px; }
+        .form-item input:focus, .form-item select:focus, .form-item textarea:focus { border-color: #5C62D9; }
+
+        .info-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px 16px; margin-bottom: 12px; }
+        .info-item { display: flex; flex-direction: column; gap: 4px; }
+        .info-label { color: #666; font-size: 12px; }
+        .info-value { color: #333; font-size: 12px; padding: 5px 8px; border: 1px solid #d9d9d9; border-radius: 4px; background: #fff; min-height: 28px; display: flex; align-items: center; }
+        .info-value input { width: 100%; border: none; outline: none; font-size: 12px; background: transparent; padding: 0; }
+
+        .btn { padding: 6px 16px; border-radius: 4px; cursor: pointer; font-size: 12px; border: 1px solid transparent; transition: all 0.2s; outline: none; }
+        .btn-primary { background-color: #5C62D9; color: #fff; border-color: #5C62D9; }
+        .btn-primary:hover { background-color: #4a50c0; }
+        .btn-default { background-color: #fff; border-color: #d9d9d9; color: #333; }
+        .btn-default:hover { border-color: #5C62D9; color: #5C62D9; }
+        .btn-sm { padding: 4px 12px; font-size: 12px; }
+        .btn-danger { background-color: #fff; border-color: #d9d9d9; color: #333; }
+        .btn-danger:hover { border-color: #f5222d; color: #f5222d; }
+
+        .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .toolbar-left { display: flex; gap: 8px; align-items: center; }
+
+        .summary-row { display: flex; gap: 32px; padding: 12px 0; color: #f5222d; font-size: 12px; border-top: 1px solid #e8e8e8; margin-top: 8px; }
+        .summary-row span { display: flex; align-items: center; gap: 4px; }
+        .summary-label { color: #666; }
+
+        .footer-bar { display: flex; justify-content: center; gap: 12px; padding: 16px; background: #fafafa; border-top: 1px solid #e8e8e8; position: sticky; bottom: 0; }
+
+        .invoice-line-table { min-width: 1400px; }
+        .invoice-line-table th { background: #f0f0f8; font-size: 11px; padding: 8px 6px; }
+        .invoice-line-table td { padding: 8px 6px; font-size: 11px; }
+        .invoice-line-table td input, .invoice-line-table td select { width: 100%; padding: 3px 4px; border: 1px solid #d9d9d9; border-radius: 3px; font-size: 11px; outline: none; }
+        .invoice-line-table td input:focus, .invoice-line-table td select:focus { border-color: #5C62D9; }
+        .invoice-line-table .required::after { content: '*'; color: #f5222d; margin-left: 2px; }
+
+        .action-link { color: #5C62D9; cursor: pointer; margin-right: 8px; }
+        .action-link:hover { text-decoration: underline; }
+        .remove-link { color: #5C62D9; cursor: pointer; }
+        .remove-link:hover { text-decoration: underline; }
+
+        .add-row-btn { display: flex; justify-content: center; padding: 8px; border: 1px dashed #d9d9d9; border-radius: 4px; color: #5C62D9; cursor: pointer; margin-top: 8px; }
+        .add-row-btn:hover { border-color: #5C62D9; background: #f0f0f8; }
+
+        .empty-tip { text-align: center; color: #999; padding: 20px 0; font-size: 12px; }
+
+        .customer-service { position: fixed; right: 20px; bottom: 20px; width: 40px; height: 40px; background: #fff; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 20px; z-index: 1000; }
+
+        .checkbox-label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <aside class="sidebar" id="sidebar">
+        <nav class="sidebar-nav">
+            
+            <a href="product-mapping.html" class="nav-item">
+            </a>
+            <a href="invoice-flow-config.html" class="nav-item">
+                <span class="nav-text">开票流程配置</span>
+            </a>
+            <a href="index.html" class="nav-item">
+                <span class="nav-text">对账管理</span>
+            </a>
+            <a href="invoice.html" class="nav-item active">
+                <span class="nav-text">发票管理</span>
+            </a>
+            <a href="verification.html" class="nav-item">
+                <span class="nav-text">发票核销(新)</span>
+            </a>
+            <a href="verification-trace.html" class="nav-item">
+                <span class="nav-text">发票台账</span>
+            </a>
+        </nav>
+        <div class="sidebar-resizer" id="sidebarResizer"></div>
+    </aside>
+
+    <div class="sidebar-toggle-btn" id="sidebarToggleBtn" title="收起/展开侧边栏">
+        <span class="toggle-icon">&#9664;</span>
+    </div>
+
+    <main class="main-content" id="mainContent">
+        <div class="page-container">
+            <div class="breadcrumb">
+                <a href="invoice.html">发票管理</a>
+                <span class="breadcrumb-separator">&gt;</span>
+                <a href="invoice-nonstandard.html">非标准场景开票申请</a>
+                <span class="breadcrumb-separator">&gt;</span>
+                <span class="breadcrumb-current">开票申请</span>
+            </div>
+
+            <!-- 基本信息 -->
+            <div class="panel">
+                <div class="section-title">基本信息</div>
+                <div class="form-row">
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">*开票场景：</span>
+                        <select><option>账单开票</option><option>非账单开票</option></select>
+                    </div>
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">*客户代码：</span>
+                        <input type="text" value="G1345">
+                    </div>
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">*账户编号：</span>
+                        <input type="text" value="ACG134591">
+                    </div>
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">业务线：</span>
+                        <input type="text" value="海外仓储">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">服务主体：</span>
+                        <input type="text" value="深圳一力天蜂有限公司">
+                    </div>
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">销售区域：</span>
+                        <input type="text" value="ETARGET LIMITED">
+                    </div>
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">客户来源：</span>
+                        <input type="text" value="GD">
+                    </div>
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">开票方式：</span>
+                        <select><option>共享系统开票</option></select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">*发票类型：</span>
+                        <select><option>形式发票</option></select>
+                    </div>
+                    <div class="form-item" style="flex: 1;">
+                        <span class="label">是否抵扣预购：</span>
+                        <span class="checkbox-label"><input type="radio" name="deduct" checked> 是</span>
+                        <span class="checkbox-label"><input type="radio" name="deduct"> 否</span>
+                    </div>
+                    <div class="form-item" style="flex: 2;"></div>
+                </div>
+            </div>
+
+            <!-- 关联账单信息 -->
+            <div class="panel">
+                <div class="section-title">关联账单信息</div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="col-index">序号</th>
+                                <th class="col-medium">账单号</th>
+                                <th class="col-medium">账单周期</th>
+                                <th class="col-small">账单币种</th>
+                                <th class="col-medium">不含税金额</th>
+                                <th class="col-medium">税金</th>
+                                <th class="col-action">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr><td colspan="7" class="empty-tip">暂无数据</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="add-row-btn" onclick="addBillRow()">+</div>
+            </div>
+
+            <!-- 发票抬头信息 -->
+            <div class="panel">
+                <div class="section-title">发票抬头信息</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">购方名称</span>
+                        <div class="info-value"><input type="text" value="深圳市科杰瑞创科技有限公司"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">购方税号</span>
+                        <div class="info-value"><input type="text" value="913304815803290772"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">购方地址电话</span>
+                        <div class="info-value"><input type="text" value="0573-67019799"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">购方开户行账号</span>
+                        <div class="info-value"><input type="text" value="29008801010080040841"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">销方名称</span>
+                        <div class="info-value"><input type="text" value="ETARGET LIMITED"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">销方税号</span>
+                        <div class="info-value"><input type="text" value="2296048"></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">销方地址</span>
+                        <div class="info-value"><input type="text" value=""></div>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">销方开户行账号</span>
+                        <div class="info-value"><input type="text" value="54545454540 EUR 620000000000..."></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 发票行信息 -->
+            <div class="panel">
+                <div class="section-title">发票行信息</div>
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <button class="btn btn-sm btn-primary">新增</button>
+                        <button class="btn btn-sm btn-default">批量导入</button>
+                        <button class="btn btn-sm btn-default">查看上传附件</button>
+                        <button class="btn btn-sm btn-default">移除</button>
+                    </div>
+                </div>
+                <div class="toolbar">
+                    <div class="toolbar-left">
+                        <label class="checkbox-label"><input type="checkbox"> 全选</label>
+                        <span class="action-link">删除已选</span>
+                    </div>
+                </div>
+                <div class="table-wrapper">
+                    <table class="invoice-line-table">
+                        <thead>
+                            <tr>
+                                <th class="col-checkbox"><input type="checkbox"></th>
+                                <th class="col-index">序号</th>
+                                <th class="col-small">*开票行种</th>
+                                <th class="col-medium">*商品名</th>
+                                <th class="col-medium">商品名（本地化）</th>
+                                <th class="col-small">商品编码</th>
+                                <th class="col-medium">*不含税金额</th>
+                                <th class="col-medium">税金</th>
+                                <th class="col-small">税率</th>
+                                <th class="col-medium">*价税合计</th>
+                                <th class="col-medium">发票备注</th>
+                                <th class="col-medium">财务BP备注</th>
+                                <th class="col-small">申请附件</th>
+                                <th class="col-action">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td><input type="checkbox"></td>
+                                <td>1</td>
+                                <td><select><option>形式发票</option></select></td>
+                                <td><select><option>预付款</option></select></td>
+                                <td>--</td>
+                                <td><input type="text" value="WWDU-001" style="width:80px;"></td>
+                                <td><input type="text" value="100" style="width:60px;"></td>
+                                <td><input type="text" value="10" style="width:60px;"></td>
+                                <td><input type="text" value="0" style="width:50px;"></td>
+                                <td><input type="text" value="110" style="width:60px;"></td>
+                                <td><input type="text" value="" style="width:80px;"></td>
+                                <td><input type="text" value="" placeholder="请输入财务BP" style="width:100px;"></td>
+                                <td><span class="action-link">上传</span></td>
+                                <td><span class="remove-link" onclick="removeLineRow(this)">移除</span></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="add-row-btn" onclick="addLineRow()">+</div>
+                <div class="summary-row">
+                    <span><span class="summary-label">发票张数：</span>1</span>
+                    <span><span class="summary-label">不含税金额：</span>100.00 HKD</span>
+                    <span><span class="summary-label">税金金额：</span>10.00 HKD</span>
+                    <span><span class="summary-label">含税总金额：</span>110.00 HKD</span>
+                </div>
+            </div>
+
+            <div class="footer-bar">
+                <button class="btn btn-primary">保存并推送</button>
+                <button class="btn btn-default">保存</button>
+                <button class="btn btn-default" onclick="window.open('invoice-nonstandard.html', '_self')">返回</button>
+            </div>
+        </div>
+    </main>
+
+    <div class="customer-service">💬</div>
+
+    <script>
+        // 侧边栏折叠
+        const sidebar = document.getElementById('sidebar');
+        const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+        let sidebarCollapsed = false;
+        sidebarToggleBtn.addEventListener('click', () => {
+            sidebarCollapsed = !sidebarCollapsed;
+            sidebar.classList.toggle('collapsed', sidebarCollapsed);
+            sidebarToggleBtn.classList.toggle('collapsed', sidebarCollapsed);
+        });
+
+        // 侧边栏拖拽
+        const sidebarResizer = document.getElementById('sidebarResizer');
+        let isResizing = false;
+        sidebarResizer.addEventListener('mousedown', e => {
+            isResizing = true;
+            sidebarResizer.classList.add('active');
+            document.body.style.cursor = 'col-resize';
+            document.body.style.userSelect = 'none';
+        });
+        document.addEventListener('mousemove', e => {
+            if (!isResizing) return;
+            let newWidth = e.clientX;
+            if (newWidth < 160) newWidth = 160;
+            if (newWidth > 400) newWidth = 400;
+            sidebar.style.width = newWidth + 'px';
+            sidebar.style.minWidth = newWidth + 'px';
+            sidebarToggleBtn.style.left = newWidth + 'px';
+        });
+        document.addEventListener('mouseup', () => {
+            if (isResizing) {
+                isResizing = false;
+                sidebarResizer.classList.remove('active');
+                document.body.style.cursor = '';
+                document.body.style.userSelect = '';
+            }
+        });
+
+        // 关联账单行操作
+        function addBillRow() {
+            const tbody = document.querySelector('.panel:nth-of-type(2) table tbody');
+            const rows = tbody.querySelectorAll('tr');
+            if (rows.length === 1 && rows[0].querySelector('.empty-tip')) {
+                tbody.innerHTML = '';
+            }
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td>' + (tbody.children.length + 1) + '</td><td><input type="text" placeholder="请输入账单号" style="width:120px;"></td><td><input type="text" placeholder="账单周期" style="width:120px;"></td><td><input type="text" placeholder="币种" style="width:60px;"></td><td><input type="text" placeholder="0.00" style="width:80px;"></td><td><input type="text" placeholder="0.00" style="width:80px;"></td><td><span class="remove-link" onclick="removeBillRow(this)">移除</span></td>';
+            tbody.appendChild(tr);
+        }
+        function removeBillRow(el) {
+            const tr = el.closest('tr');
+            const tbody = tr.closest('tbody');
+            tr.remove();
+            if (tbody.children.length === 0) {
+                tbody.innerHTML = '<tr><td colspan="7" class="empty-tip">暂无数据</td></tr>';
+            }
+            Array.from(tbody.children).forEach((row, idx) => {
+                if (!row.querySelector('.empty-tip')) row.children[0].textContent = idx + 1;
+            });
+        }
+
+        // 发票行操作
+        function addLineRow() {
+            const tbody = document.querySelector('.invoice-line-table tbody');
+            const tr = document.createElement('tr');
+            tr.innerHTML = '<td><input type="checkbox"></td><td>' + (tbody.children.length + 1) + '</td><td><select><option>形式发票</option></select></td><td><select><option>预付款</option></select></td><td>--</td><td><input type="text" value="" style="width:80px;"></td><td><input type="text" value="" style="width:60px;"></td><td><input type="text" value="" style="width:60px;"></td><td><input type="text" value="" style="width:50px;"></td><td><input type="text" value="" style="width:60px;"></td><td><input type="text" value="" style="width:80px;"></td><td><input type="text" value="" placeholder="请输入财务BP" style="width:100px;"></td><td><span class="action-link">上传</span></td><td><span class="remove-link" onclick="removeLineRow(this)">移除</span></td>';
+            tbody.appendChild(tr);
+        }
+        function removeLineRow(el) {
+            const tr = el.closest('tr');
+            const tbody = tr.closest('tbody');
+            tr.remove();
+            Array.from(tbody.children).forEach((row, idx) => { row.children[1].textContent = idx + 1; });
+        }
+    </script>
+</body>
+</html>
