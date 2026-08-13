@@ -1030,6 +1030,22 @@
             color: #666;
         }
 
+        .edit-form-select {
+            flex: 1;
+            padding: 6px 10px;
+            border: 1px solid #d9d9d9;
+            border-radius: 4px;
+            font-size: 12px;
+            outline: none;
+            background: #fff;
+            height: 30px;
+            cursor: pointer;
+        }
+
+        .edit-form-select:focus {
+            border-color: #5C62D9;
+        }
+
         .edit-form-textarea {
             flex: 1;
             padding: 6px 10px;
@@ -1758,6 +1774,22 @@
             </div>
             <div class="modal-body">
                 <div class="edit-form-row">
+                    <span class="edit-form-label">账单币种：</span>
+                    <select class="edit-form-select" id="editCurrency">
+                        <option value="">请选择账单币种</option>
+                        <option value="CNY">CNY</option>
+                        <option value="USD">USD</option>
+                        <option value="EUR">EUR</option>
+                        <option value="GBP">GBP</option>
+                        <option value="HKD">HKD</option>
+                        <option value="JPY">JPY</option>
+                        <option value="KRW">KRW</option>
+                        <option value="AUD">AUD</option>
+                        <option value="CAD">CAD</option>
+                        <option value="SGD">SGD</option>
+                    </select>
+                </div>
+                <div class="edit-form-row">
                     <span class="edit-form-label">调整金额：</span>
                     <input type="text" class="edit-form-input" id="editAdjustAmount" placeholder="请输入调整金额">
                 </div>
@@ -2018,8 +2050,10 @@
         const editAdjustAmount = document.getElementById('editAdjustAmount');
         const editAfterAmount = document.getElementById('editAfterAmount');
         const editRemark = document.getElementById('editRemark');
+        const editCurrency = document.getElementById('editCurrency');
 
         function openEditNoInvoice(el) {
+            editCurrency.value = '';
             editAdjustAmount.value = '';
             editAfterAmount.value = '';
             editRemark.value = '';
