@@ -886,10 +886,6 @@
             transform: rotate(90deg);
         }
 
-        .record-table.collapsed {
-            display: none;
-        }
-
         .detail-info-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -965,7 +961,7 @@
             max-width: 28px;
         }
 
-        /* 金额信息表格：所有列（币种、不开票总金额、清账金额、代金券金额、人工调整金额）28px等宽 */
+        /* 金额信息表格：所有列（币种、不开票总金额、营业外收入、坏账损失、代金券金额、人工调整金额）28px等宽 */
         #noInvoiceDetailModal .amount-table th,
         #noInvoiceDetailModal .amount-table td {
             width: 28px;
@@ -973,13 +969,6 @@
             max-width: 28px;
         }
 
-        /* 操作记录表格：所有列（操作人、操作时间、操作内容）28px等宽 */
-        #noInvoiceDetailModal .record-table th,
-        #noInvoiceDetailModal .record-table td {
-            width: 28px;
-            min-width: 28px;
-            max-width: 28px;
-        }
 
         .detail-action-bar {
             display: flex;
@@ -1718,7 +1707,8 @@
                             <tr>
                                 <th>币种<div class="col-resizer"></div></th>
                                 <th>不开票总金额<div class="col-resizer"></div></th>
-                                <th>清账金额<div class="col-resizer"></div></th>
+                                <th>营业外收入<div class="col-resizer"></div></th>
+                                <th>坏账损失<div class="col-resizer"></div></th>
                                 <th>代金券金额<div class="col-resizer"></div></th>
                                 <th>人工调整金额<div class="col-resizer"></div></th>
                             </tr>
@@ -1727,32 +1717,10 @@
                             <tr>
                                 <td id="detailCurrency">CNY</td>
                                 <td id="detailNoInvoiceTotal">0.00</td>
-                                <td id="detailClearAmount">0.00</td>
+                                <td id="detailNonBusinessIncome">0.00</td>
+                                <td id="detailBadDebtLoss">0.00</td>
                                 <td id="detailVoucherAmount">0.00</td>
                                 <td id="detailManualAdjust">0.00</td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="detail-section">
-                    <div class="detail-section-title collapsible" id="opRecordToggle">
-                        <span>操作记录</span>
-                        <span class="toggle-icon">&#9654;</span>
-                    </div>
-                    <table class="detail-table record-table collapsed" id="opRecordTable">
-                        <thead>
-                            <tr>
-                                <th>操作人<div class="col-resizer"></div></th>
-                                <th>操作时间<div class="col-resizer"></div></th>
-                                <th>操作内容<div class="col-resizer"></div></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <tr>
-                                <td>admin</td>
-                                <td>2026-07-20 10:30:00</td>
-                                <td>初始化不开票金额</td>
                             </tr>
                         </tbody>
                     </table>
@@ -2031,16 +1999,6 @@
         noInvoiceDetailModal.addEventListener('click', e => {
             if (e.target === noInvoiceDetailModal) closeNoInvoiceDetail();
         });
-
-        // 操作记录折叠/展开
-        const opRecordToggle = document.getElementById('opRecordToggle');
-        const opRecordTable = document.getElementById('opRecordTable');
-        if (opRecordToggle && opRecordTable) {
-            opRecordToggle.addEventListener('click', () => {
-                opRecordTable.classList.toggle('collapsed');
-                opRecordToggle.classList.toggle('expanded');
-            });
-        }
 
         // 修改不开票金额弹窗
         const editNoInvoiceModal = document.getElementById('editNoInvoiceModal');
