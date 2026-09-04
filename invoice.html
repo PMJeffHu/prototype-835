@@ -2425,7 +2425,8 @@
             var label = document.createElement('label');
             var cb = document.createElement('input');
             cb.type = 'checkbox';
-            cb.checked = true;
+            // 未开票金额(发票币种) 列(idx 13) 默认隐藏，其余列默认显示
+            cb.checked = (col.idx !== 13);
             cb.dataset.colIdx = col.idx;
             if (col.locked) {
                 cb.disabled = true;
@@ -2480,6 +2481,9 @@
             }
             styleEl.textContent = rules.join('\n');
         }
+
+        // 初始化：默认隐藏 未开票金额(发票币种) 列(idx 13)，可在列设置中勾选恢复显示
+        toggleColumn(13, false);
 
         // ========== 筛选面板多选下拉 ==========
         function toggleMultiSelect(wrapId) {
